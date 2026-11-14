@@ -22,7 +22,7 @@ a texture.
 > does.
 
 - Wiki: [github.com/Drehverschluss/Packscope/wiki](https://github.com/Drehverschluss/Packscope/wiki)
-- CurseForge: coming soon
+- CurseForge: [curseforge.com/minecraft/mc-mods/packscope](https://www.curseforge.com/minecraft/mc-mods/packscope)
 - Bug reports and suggestions: [issue tracker](https://github.com/Drehverschluss/Packscope/issues)
 
 ## Screenshots
