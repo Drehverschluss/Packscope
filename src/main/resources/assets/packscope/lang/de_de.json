@@ -1,9 +1,8 @@
 {
   "packscope.command.scanning": "Packscope: prüfe %s aktive Resourcepacks...",
   "packscope.command.rescan": "Packscope: Cache geleert, prüfe %s aktive Resourcepacks neu...",
-  "packscope.command.done": "Packscope: %s Resourcepacks, %s Konflikte, %s komplett verdeckt. Bericht: %s",
+  "packscope.command.done": "Packscope: %s Resourcepacks, %s Konflikte (%s gewollt), %s komplett verdeckt. Bericht: %s",
   "packscope.command.failed": "Packscope: Der Bericht ist fehlgeschlagen (%s). Details im Log.",
-
   "packscope.configuration.title": "Packscope",
   "packscope.configuration.showInVanillaScreen": "Symbole im Vanilla-Pack-Menü",
   "packscope.configuration.showInVanillaScreen.tooltip": "Konflikt-Symbole im Vanilla-Resourcepack-Menü anzeigen.",
@@ -22,5 +21,9 @@
   "packscope.configuration.autoExportReport": "Bericht nach jedem Neuladen",
   "packscope.configuration.autoExportReport.tooltip": "Nach jedem Neuladen der Ressourcen packscope/reports/packscope-report.md und .json schreiben.",
   "packscope.configuration.reportListModOverrides": "Alle Mod-Dateien im Bericht",
-  "packscope.configuration.reportListModOverrides.tooltip": "Jede ersetzte Mod-/Vanilla-Datei im Bericht auflisten, nicht nur die Zahlen pro Mod."
+  "packscope.configuration.reportListModOverrides.tooltip": "Jede ersetzte Mod-/Vanilla-Datei im Bericht auflisten, nicht nur die Zahlen pro Mod.",
+  "packscope.configuration.allLanguages": "Alle Sprachen zählen",
+  "packscope.configuration.allLanguages.tooltip": "Sprach-Keys aller Sprachen zählen. Aus: nur en_us und die gewählte Spielsprache, die das Spiel wirklich lädt.",
+  "packscope.configuration.showIntendedSymbol": "Symbol für gewollte Konflikte",
+  "packscope.configuration.showIntendedSymbol.tooltip": "Graues Symbol bei Packs, deren Konflikte alle als gewollt markiert sind. Aus: kein Symbol für sie."
 }

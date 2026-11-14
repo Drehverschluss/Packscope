@@ -4,9 +4,11 @@ import com.drehverschluss.packscope.core.ScanResult.FileConflict;
 import com.drehverschluss.packscope.core.ScanResult.FilteredFile;
 import com.drehverschluss.packscope.core.ScanResult.LangConflict;
 import com.drehverschluss.packscope.core.ScanResult.LangLoser;
+import com.drehverschluss.packscope.core.ScanResult.MarkingState;
 import com.drehverschluss.packscope.core.ScanResult.ModOverride;
 import com.drehverschluss.packscope.core.ScanResult.OverrideType;
 import com.drehverschluss.packscope.core.ScanResult.PackSummary;
+import com.drehverschluss.packscope.core.ScanResult.PairConflict;
 import com.drehverschluss.packscope.core.ScanResult.SoundReplacement;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -21,16 +23,19 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-/** Writes {@code packscope-report.md} (readable) and {@code packscope-report.json} (for tools) (Konzept 8). */
+/** Writes {@code packscope-report.md} (readable) and {@code packscope-report.json} (complete, for tools) (Konzept 8). */
 public final class ReportWriter {
     public static final String MD_NAME = "packscope-report.md";
     public static final String JSON_NAME = "packscope-report.json";
+    /** Language keys listed with texts per file and pack pair in the .md; the rest only in the .json. */
+    static final int LANG_KEYS_SHOWN = 50;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
@@ -65,54 +70,72 @@ public final class ReportWriter {
         sb.append("- Active packs: ").append(rps.size()).append(" resource packs, ")
             .append(r.packs().size() - rps.size()).append(" mod/vanilla packs\n");
         long fileCount = r.fileConflicts().stream().filter(c -> !c.losers().isEmpty() || !c.dead().isEmpty()).count();
-        sb.append("- Conflicts: ").append(r.conflictCount()).append(" (files ").append(fileCount).append(", language keys ")
-            .append(r.langConflicts().size()).append(", replaced sound events ").append(r.soundReplacements().size()).append(")\n");
+        sb.append("- Conflicts: ").append(r.conflictCount()).append(" (intended: ").append(r.intendedCount()).append(") – files ")
+            .append(fileCount).append(", language keys ").append(r.langConflicts().size()).append(", replaced sound events ")
+            .append(r.soundReplacements().size()).append('\n');
         List<PackSummary> covered = r.coveredPacks();
         sb.append("- Completely covered packs: ").append(covered.isEmpty() ? "none"
-            : covered.stream().map(p -> p.title()).collect(Collectors.joining(", "))).append('\n');
+            : covered.stream().map(PackSummary::title).collect(Collectors.joining(", "))).append('\n');
+        List<PackSummary> against = rps.stream().filter(PackSummary::againstMarking).toList();
+        if (!against.isEmpty()) {
+            sb.append("- Against marking: ").append(against.stream().map(PackSummary::title).collect(Collectors.joining(", "))).append('\n');
+        }
+        sb.append("- Languages: ").append(r.order().languages().isEmpty() ? "all" : String.join(", ", r.order().languages())).append('\n');
         sb.append("- Scan: ").append(ms(r.scanNanos())).append(" ms, evaluation: ").append(ms(r.resolveNanos())).append(" ms\n");
         sb.append("- Settings: ignoreIdentical=").append(settings.ignoreIdentical()).append(", ignoredPaths=")
-            .append(settings.ignoredPaths()).append("\n\n");
+            .append(settings.ignoredPaths()).append(", allLanguages=").append(settings.allLanguages()).append("\n\n");
 
         sb.append("## Load order (top = highest priority)\n\n");
         sb.append("| # | Pack | Id | Type | Scan | Files | Status | Wins | Loses | Notes |\n");
         sb.append("|---|---|---|---|---|---|---|---|---|---|\n");
         int n = 1;
         for (PackSummary p : r.packs()) {
+            boolean rp = p.role() == PackRole.RESOURCE_PACK;
             sb.append("| ").append(n++).append(" | ").append(cell(p.title())).append(" | `").append(cell(p.id())).append("` | ")
                 .append(roleLabel(p)).append(" | ").append(p.kind().id()).append(p.approximate() ? " (approximate)" : "").append(" | ")
                 .append(p.fileCount()).append(" | ")
-                .append(p.role() == PackRole.RESOURCE_PACK ? p.status().label() : "–").append(" | ")
-                .append(p.role() == PackRole.RESOURCE_PACK ? p.wins() : "").append(" | ")
-                .append(p.role() == PackRole.RESOURCE_PACK ? p.losses() : "").append(" | ")
-                .append(cell(notes(p))).append(" |\n");
+                .append(rp ? p.status().label() : "–").append(" | ")
+                .append(rp ? p.wins() : "").append(" | ")
+                .append(rp ? p.losses() : "").append(" | ")
+                .append(cell(notes(p, names))).append(" |\n");
         }
         sb.append('\n');
 
         if (!covered.isEmpty()) {
             sb.append("## Completely covered packs\n\n");
             for (PackSummary p : covered) {
-                sb.append("- **").append(p.title()).append("** – nothing of this pack is used. Overridden by: ")
-                    .append(counts(p.losesTo(), names)).append('\n');
+                sb.append("- **").append(p.title()).append("** – nothing of this pack reaches the game. ");
+                if (p.onlyCopies()) {
+                    sb.append("Only copies of ").append(top(p.copiesOf(), names, 3)).append('\n');
+                } else {
+                    List<String> parts = new ArrayList<>();
+                    if (!p.losesTo().isEmpty()) parts.add("overridden by " + top(p.losesTo(), names, 3));
+                    if (!p.copiesOf().isEmpty()) parts.add("copies of " + top(p.copiesOf(), names, 3));
+                    if (p.hiddenByFilter() > 0) parts.add(p.hiddenByFilter() + " hidden by filters");
+                    if (p.dead() > 0) parts.add(p.dead() + " .mcmeta without effect");
+                    if (p.lostToMods() > 0) parts.add(p.lostToMods() + " overridden by mods");
+                    sb.append(capitalize(String.join(", ", parts))).append('\n');
+                }
             }
             sb.append('\n');
         }
 
         sb.append("## Pack against pack\n\n");
-        boolean any = false;
-        for (PackSummary p : rps) {
-            if (p.winsAgainst().isEmpty() && p.losesTo().isEmpty()) continue;
-            any = true;
-            sb.append("- **").append(p.title()).append("**");
-            if (!p.winsAgainst().isEmpty()) sb.append(" – overrides ").append(counts(p.winsAgainst(), names));
-            if (!p.losesTo().isEmpty()) sb.append(" – overridden by ").append(counts(p.losesTo(), names));
+        List<PairConflict> open = r.pairs().stream().filter(p -> !p.intended()).toList();
+        if (open.isEmpty()) sb.append("No conflicts between resource packs outside the intended pairs.\n");
+        for (PairConflict p : open) {
+            sb.append("- **").append(names.get(p.upper())).append("** over **").append(names.get(p.lower())).append("**: ")
+                .append(pairCounts(p));
+            if (p.againstMarking()) sb.append(" – **against marking** (intended is the other way round)");
             sb.append('\n');
         }
-        sb.append(any ? "\n" : "No conflicts between resource packs.\n\n");
+        sb.append('\n');
+
+        markingSection(sb, r, names);
 
         sb.append("## File conflicts\n\n");
-        List<FileConflict> real = r.fileConflicts().stream().filter(c -> !c.losers().isEmpty() || !c.dead().isEmpty()).toList();
-        if (real.isEmpty()) sb.append("None.\n");
+        List<FileConflict> real = r.fileConflicts().stream().filter(c -> (!c.losers().isEmpty() || !c.dead().isEmpty()) && !c.intended()).toList();
+        if (real.isEmpty()) sb.append("None outside the intended pairs.\n");
         for (FileConflict c : real) {
             sb.append("- `").append(c.location()).append("` – **").append(names.get(c.winner())).append("**");
             if (!c.losers().isEmpty()) sb.append(" over ").append(list(c.losers(), names));
@@ -123,28 +146,21 @@ public final class ReportWriter {
         }
         sb.append('\n');
 
-        sb.append("## Language key conflicts\n\n");
-        if (r.langConflicts().isEmpty()) sb.append("None.\n");
-        for (LangConflict c : r.langConflicts()) {
-            sb.append("- `").append(c.location()).append("` `").append(c.key()).append("` – **").append(names.get(c.winner()))
-                .append("** \"").append(shorten(c.winnerText())).append("\" over ");
-            List<String> l = new ArrayList<>();
-            for (LangLoser x : c.losers()) l.add(names.get(x.pack()) + " \"" + shorten(x.text()) + "\"");
-            sb.append(String.join(", ", l)).append('\n');
-        }
-        sb.append('\n');
+        langSection(sb, r, names);
 
         sb.append("## Replaced sound events\n\n");
-        if (r.soundReplacements().isEmpty()) sb.append("None.\n");
-        for (SoundReplacement s : r.soundReplacements()) {
+        List<SoundReplacement> sounds = r.soundReplacements().stream().filter(s -> !s.intended()).toList();
+        if (sounds.isEmpty()) sb.append("None outside the intended pairs.\n");
+        for (SoundReplacement s : sounds) {
             sb.append("- `").append(s.event()).append("` – **").append(names.get(s.pack())).append("** replaces the sounds of ")
                 .append(list(s.replacedPacks(), names)).append(" (silenced: ").append(String.join(", ", s.lostSounds())).append(")\n");
         }
         sb.append('\n');
 
         sb.append("## Hidden by filters\n\n");
-        if (r.filtered().isEmpty()) sb.append("None.\n");
-        for (FilteredFile f : r.filtered()) {
+        List<FilteredFile> filtered = r.filtered().stream().filter(f -> !f.intended()).toList();
+        if (filtered.isEmpty()) sb.append("None outside the intended pairs.\n");
+        for (FilteredFile f : filtered) {
             sb.append("- `").append(f.location()).append("` – hidden by the filter of **").append(names.get(f.filterPack()))
                 .append("** in ").append(list(f.hiddenPacks(), names)).append('\n');
         }
@@ -153,9 +169,23 @@ public final class ReportWriter {
         sb.append("## Harmless duplicates (identical files)\n\n");
         List<FileConflict> dups = r.fileConflicts().stream().filter(c -> !c.harmless().isEmpty()).toList();
         if (dups.isEmpty()) sb.append(settings.ignoreIdentical() ? "None.\n" : "Not checked (ignoreIdentical is off).\n");
+        Map<String, Integer> dupPairs = new LinkedHashMap<>();
         for (FileConflict c : dups) {
-            sb.append("- `").append(c.location()).append("` – used from **").append(names.get(c.winner())).append("**, identical in ")
-                .append(list(c.harmless(), names)).append('\n');
+            for (String h : c.harmless()) dupPairs.merge(names.get(h) + "\u0000" + names.get(c.winner()), 1, Integer::sum);
+        }
+        dupPairs.forEach((k, v) -> {
+            String[] parts = k.split("\u0000");
+            sb.append("- **").append(parts[0]).append("** has ").append(v).append(" file").append(v == 1 ? "" : "s")
+                .append(" identical to **").append(parts[1]).append("**\n");
+        });
+        if (!dups.isEmpty() && dups.size() <= 200) {
+            sb.append('\n');
+            for (FileConflict c : dups) {
+                sb.append("  - `").append(c.location()).append("` – used from ").append(names.get(c.winner())).append(", identical in ")
+                    .append(list(c.harmless(), names)).append('\n');
+            }
+        } else if (!dups.isEmpty()) {
+            sb.append("\nFull list in ").append(JSON_NAME).append(".\n");
         }
         sb.append('\n');
 
@@ -169,10 +199,69 @@ public final class ReportWriter {
         return sb.toString();
     }
 
+    private static void markingSection(StringBuilder sb, ScanResult r, Map<String, String> names) {
+        sb.append("## Intended (marked as wanted)\n\n");
+        List<PairConflict> intended = r.pairs().stream().filter(PairConflict::intended).toList();
+        if (intended.isEmpty() && r.markings().isEmpty()) {
+            sb.append("No markings (`config/packscope-intended.json`).\n\n");
+            return;
+        }
+        for (PairConflict p : intended) {
+            sb.append("- **").append(names.get(p.upper())).append("** over **").append(names.get(p.lower())).append("**: ")
+                .append(pairCounts(p)).append('\n');
+        }
+        if (!r.markings().isEmpty()) {
+            sb.append("\n| Marking | State | Conflicts | Note |\n|---|---|---|---|\n");
+            for (MarkingState m : r.markings()) {
+                sb.append("| `").append(cell(m.marking().winner())).append("` over `").append(cell(m.marking().loser())).append("` | ")
+                    .append(stateLabel(m)).append(" | ").append(m.items()).append(" | ")
+                    .append(cell(m.marking().note() == null ? "" : m.marking().note())).append(" |\n");
+            }
+        }
+        sb.append('\n');
+    }
+
+    private static String stateLabel(ScanResult.MarkingState m) {
+        return switch (m.status()) {
+            case WORKS -> "works";
+            case REVERSED -> "**reversed**";
+            case PACK_NOT_ACTIVE -> "pack not active";
+            case NO_CONFLICT -> "no conflict any more";
+        };
+    }
+
+    private static void langSection(StringBuilder sb, ScanResult r, Map<String, String> names) {
+        sb.append("## Language key conflicts\n\n");
+        // group by file + pack pair (winner, loser)
+        Map<String, List<String[]>> groups = new LinkedHashMap<>();
+        for (LangConflict c : r.langConflicts()) {
+            if (c.intended()) continue;
+            for (LangLoser l : c.losers()) {
+                groups.computeIfAbsent(c.location() + "\u0000" + c.winner() + "\u0000" + l.pack(), k -> new ArrayList<>())
+                    .add(new String[]{c.key(), c.winnerText(), l.text()});
+            }
+        }
+        if (groups.isEmpty()) sb.append("None outside the intended pairs.\n");
+        groups.forEach((k, keys) -> {
+            String[] g = k.split("\u0000");
+            sb.append("### `").append(g[0]).append("` – **").append(names.get(g[1])).append("** over **").append(names.get(g[2]))
+                .append("** (").append(keys.size()).append(keys.size() == 1 ? " key" : " keys").append(")\n\n");
+            int shown = Math.min(LANG_KEYS_SHOWN, keys.size());
+            for (int i = 0; i < shown; i++) {
+                String[] e = keys.get(i);
+                sb.append("- `").append(e[0]).append("`: \"").append(shorten(e[1])).append("\" over \"").append(shorten(e[2])).append("\"\n");
+            }
+            if (keys.size() > shown) {
+                sb.append("- … ").append(keys.size() - shown).append(" more (full list in ").append(JSON_NAME).append(")\n");
+            }
+            sb.append('\n');
+        });
+        if (groups.isEmpty()) sb.append('\n');
+    }
+
     private static void modSection(StringBuilder sb, ScanResult r, PackscopeSettings settings, Map<String, String> names) {
         sb.append("## Replaces mod and vanilla resources (info)\n\n");
         sb.append("Normal for resource packs, not a conflict. Counted per file, language key or sound event.\n\n");
-        // pack -> owner -> type -> count
         Map<String, Map<String, int[]>> table = new TreeMap<>();
         Map<String, String> ownerNames = new HashMap<>();
         List<ModOverride> reversed = new ArrayList<>();
@@ -228,20 +317,36 @@ public final class ReportWriter {
         };
     }
 
+    private static String pairCounts(PairConflict p) {
+        List<String> parts = new ArrayList<>();
+        if (p.files() > 0) parts.add(p.files() + (p.files() == 1 ? " file" : " files"));
+        if (p.langKeys() > 0) parts.add(p.langKeys() + (p.langKeys() == 1 ? " language key" : " language keys"));
+        if (p.soundEvents() > 0) parts.add(p.soundEvents() + (p.soundEvents() == 1 ? " replaced sound event" : " replaced sound events"));
+        if (p.filtered() > 0) parts.add(p.filtered() + " hidden by filter");
+        return String.join(", ", parts);
+    }
+
     private static Map<String, String> names(ScanResult r) {
         Map<String, String> names = new HashMap<>();
         for (PackSummary p : r.packs()) names.put(p.id(), p.title());
         return names;
     }
 
-    private static String notes(PackSummary p) {
+    private static String notes(PackSummary p, Map<String, String> names) {
         List<String> n = new ArrayList<>();
         if (p.role() == PackRole.RESOURCE_PACK) {
-            if (p.harmless() > 0) n.add(p.harmless() + " identical");
+            if (p.hidden()) n.add("hidden (not in the pack screen)");
+            if (p.onlyCopies()) n.add("only copies of " + top(p.copiesOf(), names, 3));
+            else if (p.copies() > 0) n.add(p.copies() + " identical");
+            if (p.againstMarking()) n.add("against marking");
+            if (p.intendedWins() + p.intendedLosses() > 0) {
+                n.add("intended: " + p.intendedWins() + " wins, " + p.intendedLosses() + " losses");
+            }
             if (p.hiddenByFilter() > 0) n.add(p.hiddenByFilter() + " hidden by filter");
             if (p.hidesOthers() > 0) n.add("hides " + p.hidesOthers() + " (filter)");
             if (p.dead() > 0) n.add(p.dead() + " .mcmeta without effect");
             if (p.replacedSoundEvents() > 0) n.add("replaces " + p.replacedSoundEvents() + " sound events");
+            if (p.intendedSoundEvents() > 0) n.add("replaces " + p.intendedSoundEvents() + " sound events (intended)");
             if (p.lostSoundEvents() > 0) n.add(p.lostSoundEvents() + " sound events replaced");
             if (p.modOverrides() > 0) n.add("replaces " + p.modOverrides() + " mod/vanilla items");
             if (p.lostToMods() > 0) n.add(p.lostToMods() + " overridden by mods");
@@ -253,15 +358,18 @@ public final class ReportWriter {
 
     private static String roleLabel(PackSummary p) {
         return switch (p.role()) {
-            case RESOURCE_PACK -> "resource pack";
+            case RESOURCE_PACK -> p.hidden() ? "resource pack (hidden)" : "resource pack";
             case MOD -> "mod" + (p.modId() != null ? " `" + p.modId() + "`" : "");
             case VANILLA -> "vanilla";
         };
     }
 
-    private static String counts(Map<String, Integer> m, Map<String, String> names) {
-        return m.entrySet().stream().sorted((a, b) -> b.getValue() - a.getValue())
-            .map(e -> names.getOrDefault(e.getKey(), e.getKey()) + " (" + e.getValue() + ")").collect(Collectors.joining(", "));
+    /** The {@code max} largest entries, "+ N more packs" for the rest. */
+    private static String top(Map<String, Integer> m, Map<String, String> names, int max) {
+        List<Map.Entry<String, Integer>> sorted = m.entrySet().stream().sorted((a, b) -> b.getValue() - a.getValue()).toList();
+        String shown = sorted.stream().limit(max).map(e -> names.getOrDefault(e.getKey(), e.getKey()) + " (" + e.getValue() + ")")
+            .collect(Collectors.joining(", "));
+        return sorted.size() > max ? shown + " + " + (sorted.size() - max) + " more packs" : shown;
     }
 
     private static String list(List<String> ids, Map<String, String> names) {
@@ -270,6 +378,10 @@ public final class ReportWriter {
 
     private static String cell(String s) {
         return s == null ? "" : s.replace("|", "\\|").replace("\n", " ");
+    }
+
+    private static String capitalize(String s) {
+        return s.isEmpty() ? s : Character.toUpperCase(s.charAt(0)) + s.substring(1) + ".";
     }
 
     private static String shorten(String s) {
@@ -290,9 +402,12 @@ public final class ReportWriter {
         root.addProperty("scanMillis", r.scanNanos() / 1_000_000.0);
         root.addProperty("evaluationMillis", r.resolveNanos() / 1_000_000.0);
         root.addProperty("conflicts", r.conflictCount());
+        root.addProperty("intendedConflicts", r.intendedCount());
+        root.add("languages", strings(r.order().languages()));
         JsonObject s = new JsonObject();
         s.addProperty("ignoreIdentical", settings.ignoreIdentical());
         s.add("ignoredPaths", strings(settings.ignoredPaths()));
+        s.addProperty("allLanguages", settings.allLanguages());
         root.add("settings", s);
 
         JsonArray order = new JsonArray();
@@ -303,6 +418,7 @@ public final class ReportWriter {
             o.addProperty("role", p.role().name().toLowerCase(Locale.ROOT));
             o.addProperty("scan", p.kind().id());
             o.addProperty("approximate", p.approximate());
+            o.addProperty("hidden", p.hidden());
             o.addProperty("files", p.fileCount());
             if (p.modId() != null) o.addProperty("modId", p.modId());
             if (p.parentId() != null) o.addProperty("parent", p.parentId());
@@ -310,21 +426,56 @@ public final class ReportWriter {
                 o.addProperty("status", p.status().id());
                 o.addProperty("wins", p.wins());
                 o.addProperty("losses", p.losses());
+                o.addProperty("intendedWins", p.intendedWins());
+                o.addProperty("intendedLosses", p.intendedLosses());
+                o.addProperty("againstMarking", p.againstMarking());
                 o.addProperty("deadMcmeta", p.dead());
-                o.addProperty("harmless", p.harmless());
+                o.addProperty("copies", p.copies());
+                o.addProperty("onlyCopies", p.onlyCopies());
                 o.addProperty("hiddenByFilter", p.hiddenByFilter());
                 o.addProperty("hidesOthers", p.hidesOthers());
                 o.addProperty("replacedSoundEvents", p.replacedSoundEvents());
+                o.addProperty("intendedSoundEvents", p.intendedSoundEvents());
                 o.addProperty("lostSoundEvents", p.lostSoundEvents());
                 o.addProperty("lostToMods", p.lostToMods());
                 o.addProperty("modOverrides", p.modOverrides());
                 o.add("winsAgainst", counts(p.winsAgainst()));
                 o.add("losesTo", counts(p.losesTo()));
+                o.add("copiesOf", counts(p.copiesOf()));
                 o.add("modOverridesByMod", counts(p.modOverridesByOwner()));
             }
             order.add(o);
         }
         root.add("order", order);
+
+        JsonArray pairs = new JsonArray();
+        for (PairConflict p : r.pairs()) {
+            JsonObject o = new JsonObject();
+            o.addProperty("upper", p.upper());
+            o.addProperty("lower", p.lower());
+            o.addProperty("files", p.files());
+            o.addProperty("langKeys", p.langKeys());
+            o.addProperty("soundEvents", p.soundEvents());
+            o.addProperty("filtered", p.filtered());
+            o.addProperty("intended", p.intended());
+            o.addProperty("againstMarking", p.againstMarking());
+            pairs.add(o);
+        }
+        root.add("pairs", pairs);
+
+        JsonArray markings = new JsonArray();
+        for (MarkingState m : r.markings()) {
+            JsonObject o = new JsonObject();
+            o.addProperty("winner", m.marking().winner());
+            o.addProperty("loser", m.marking().loser());
+            if (m.marking().note() != null) o.addProperty("note", m.marking().note());
+            o.addProperty("state", m.status().id());
+            if (m.winnerPack() != null) o.addProperty("winnerPack", m.winnerPack());
+            if (m.loserPack() != null) o.addProperty("loserPack", m.loserPack());
+            o.addProperty("conflicts", m.items());
+            markings.add(o);
+        }
+        root.add("markings", markings);
 
         JsonArray files = new JsonArray();
         for (FileConflict c : r.fileConflicts()) {
@@ -335,6 +486,7 @@ public final class ReportWriter {
             o.add("losers", strings(c.losers()));
             o.add("harmless", strings(c.harmless()));
             o.add("deadMcmeta", strings(c.dead()));
+            o.addProperty("intended", c.intended());
             if (c.note() != null) o.addProperty("note", c.note());
             files.add(o);
         }
@@ -356,6 +508,7 @@ public final class ReportWriter {
                 losers.add(x);
             }
             o.add("losers", losers);
+            o.addProperty("intended", c.intended());
             lang.add(o);
         }
         root.add("langConflicts", lang);
@@ -367,6 +520,7 @@ public final class ReportWriter {
             o.addProperty("pack", x.pack());
             o.add("replacedPacks", strings(x.replacedPacks()));
             o.add("lostSounds", strings(x.lostSounds()));
+            o.addProperty("intended", x.intended());
             sounds.add(o);
         }
         root.add("soundReplacements", sounds);
@@ -377,6 +531,7 @@ public final class ReportWriter {
             o.addProperty("location", f.location());
             o.addProperty("filterPack", f.filterPack());
             o.add("hiddenPacks", strings(f.hiddenPacks()));
+            o.addProperty("intended", f.intended());
             filtered.add(o);
         }
         root.add("filtered", filtered);

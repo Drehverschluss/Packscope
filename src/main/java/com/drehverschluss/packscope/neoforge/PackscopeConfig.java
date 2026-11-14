@@ -16,6 +16,8 @@ public final class PackscopeConfig {
     private static final ModConfigSpec.BooleanValue CACHE_ENABLED;
     private static final ModConfigSpec.BooleanValue AUTO_EXPORT_REPORT;
     private static final ModConfigSpec.BooleanValue REPORT_LIST_MOD_OVERRIDES;
+    private static final ModConfigSpec.BooleanValue ALL_LANGUAGES;
+    private static final ModConfigSpec.BooleanValue SHOW_INTENDED_SYMBOL;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -57,6 +59,15 @@ public final class PackscopeConfig {
             .comment("List every replaced mod/vanilla file in the report (otherwise only the numbers per mod).")
             .translation("packscope.configuration.reportListModOverrides")
             .define("reportListModOverrides", false);
+        ALL_LANGUAGES = b
+            .comment("Count language keys of all languages. Off: only en_us and the selected game language,",
+                "the ones the game actually loads.")
+            .translation("packscope.configuration.allLanguages")
+            .define("allLanguages", false);
+        SHOW_INTENDED_SYMBOL = b
+            .comment("Show a grey icon for packs whose conflicts are all marked as intended. Off: no icon for them.")
+            .translation("packscope.configuration.showIntendedSymbol")
+            .define("showIntendedSymbol", true);
         SPEC = b.build();
     }
 
@@ -67,6 +78,6 @@ public final class PackscopeConfig {
         if (!SPEC.isLoaded()) return PackscopeSettings.DEFAULTS;
         return new PackscopeSettings(SHOW_IN_VANILLA_SCREEN.get(), SHOW_IN_PACKED_PACKS.get(), IGNORE_IDENTICAL.get(),
             SHOW_MOD_OVERRIDES_IN_TOOLTIP.get(), List.copyOf(IGNORED_PATHS.get()), PREVIEW_SIZE.get(), CACHE_ENABLED.get(),
-            AUTO_EXPORT_REPORT.get(), REPORT_LIST_MOD_OVERRIDES.get());
+            AUTO_EXPORT_REPORT.get(), REPORT_LIST_MOD_OVERRIDES.get(), ALL_LANGUAGES.get(), SHOW_INTENDED_SYMBOL.get());
     }
 }

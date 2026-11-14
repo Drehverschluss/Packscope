@@ -55,11 +55,14 @@ class TestPackExpectationsTest {
             Map.entry("PS_Lang_High", PackStatus.WINS),
             Map.entry("PS_Lang_Low.zip", PackStatus.LOSES),
             Map.entry("PS_B_Top", PackStatus.WINS),
+            Map.entry("PS_Lang3_High", PackStatus.WINS),
+            Map.entry("PS_Lang3_Low.zip", PackStatus.LOSES),
+            Map.entry("PS_E_CopyOnly.zip", PackStatus.COMPLETELY_COVERED),
             Map.entry("PS_C_Copy.zip", PackStatus.NO_CONFLICT),
             Map.entry("PS_A_Base.zip", PackStatus.WINS_AND_LOSES),
             Map.entry("PS_D_Hidden.zip", PackStatus.COMPLETELY_COVERED));
         expected.forEach((name, status) -> assertEquals(status, pack(name).status(), name));
-        assertEquals(List.of(id("PS_D_Hidden.zip")), result.coveredPacks().stream().map(PackSummary::id).toList());
+        assertEquals(List.of(id("PS_E_CopyOnly.zip"), id("PS_D_Hidden.zip")), result.coveredPacks().stream().map(PackSummary::id).toList());
     }
 
     @Test
@@ -70,6 +73,7 @@ class TestPackExpectationsTest {
         FileConflict covered = file("packscope_test:texts/d_covered.txt");
         assertEquals(id("PS_B_Top"), covered.winner());
         assertEquals(List.of(id("PS_D_Hidden.zip")), covered.losers());
+        assertEquals(List.of(id("PS_E_CopyOnly.zip")), covered.harmless());
         // A wins the diamond against D, loses it to B and ov_vs_a to the overlay
         PackSummary a = pack("PS_A_Base.zip");
         assertEquals(1, a.wins());
@@ -112,8 +116,9 @@ class TestPackExpectationsTest {
 
     @Test
     void languageKeys() {
-        assertEquals(1, result.langConflicts().size());
-        LangConflict c = result.langConflicts().get(0);
+        // readmeOrder() counts all languages: lang3 has its shared key in en_us, de_de and fr_fr
+        assertEquals(4, result.langConflicts().size());
+        LangConflict c = result.langConflicts().stream().filter(x -> x.key().equals("packscope.test.shared")).findFirst().orElseThrow();
         assertEquals("packscope.test.shared", c.key());
         assertEquals("en_us", c.language());
         assertEquals(id("PS_Lang_High"), c.winner());
@@ -123,6 +128,7 @@ class TestPackExpectationsTest {
         assertNull(file("packscope_test:lang/en_us.json"), "language files are not whole-file conflicts");
         assertEquals(1, pack("PS_Lang_High").wins());
         assertEquals(1, pack("PS_Lang_Low.zip").losses());
+        assertEquals(3, pack("PS_Lang3_Low.zip").losses());
     }
 
     @Test
@@ -180,10 +186,27 @@ class TestPackExpectationsTest {
     }
 
     @Test
+    void onlyCopiesIsCompletelyCovered() {
+        PackSummary e = pack("PS_E_CopyOnly.zip");
+        assertTrue(e.onlyCopies());
+        assertEquals(Map.of(id("PS_B_Top"), 1), e.copiesOf());
+        assertFalse(pack("PS_D_Hidden.zip").onlyCopies());
+        // a copy of the winning file counts as that file: no pair "E over D", no win of its own
+        assertNull(result.pair(id("PS_E_CopyOnly.zip"), id("PS_D_Hidden.zip")));
+        assertEquals(0, e.wins());
+        assertEquals(Map.of(id("PS_B_Top"), 2), pack("PS_D_Hidden.zip").losesTo());
+        // C is the winning copy: its file reaches the game, A keeps other own files
+        assertEquals(PackStatus.NO_CONFLICT, pack("PS_C_Copy.zip").status());
+    }
+
+    @Test
     void identicalCountsWhenOptionOff() {
         ScanResult r = PackEvaluator.evaluate(TestPacks.readmeOrder(), new IndexCache(null), PackscopeSettings.DEFAULTS.withIgnoreIdentical(false));
         assertEquals(PackStatus.WINS, r.summary(id("PS_C_Copy.zip")).status());
         assertEquals(3, r.summary(id("PS_A_Base.zip")).losses());
+        // without the copy rule E simply loses its only file: still completely covered, but not "only copies"
+        assertEquals(PackStatus.COMPLETELY_COVERED, r.summary(id("PS_E_CopyOnly.zip")).status());
+        assertFalse(r.summary(id("PS_E_CopyOnly.zip")).onlyCopies());
     }
 
     @Test
@@ -206,6 +229,6 @@ class TestPackExpectationsTest {
         ScanResult second = PackEvaluator.evaluate(TestPacks.order(moved), cache, PackscopeSettings.DEFAULTS);
         assertSame(first.indexes().get(id("PS_A_Base.zip")), second.indexes().get(id("PS_A_Base.zip")), "zip index from the cache");
         assertEquals(PackStatus.WINS, second.summary(id("PS_D_Hidden.zip")).status());
-        assertEquals(PackStatus.COMPLETELY_COVERED, second.summary(id("PS_B_Top")).status());
+        assertEquals(PackStatus.COMPLETELY_COVERED, second.summary(id("PS_B_Top")).status(), "B loses both files to D");
     }
 }

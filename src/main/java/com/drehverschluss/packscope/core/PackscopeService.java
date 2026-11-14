@@ -18,6 +18,7 @@ public final class PackscopeService {
 
     private final Path reportDir;
     private final IndexCache cache;
+    private final IntendedStore intended;
     private final String versions;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "Packscope-Scan");
@@ -30,13 +31,23 @@ public final class PackscopeService {
 
     /**
      * @param gameDir  game directory; cache in {@code packscope/cache}, reports in {@code packscope/reports}
+     * @param intendedFile {@code config/packscope-intended.json}
      * @param versions shown in the report, e.g. "Packscope 0.1.0 · Minecraft 1.21.1 · NeoForge 21.1.265"
      */
-    public PackscopeService(Path gameDir, String versions) {
+    public PackscopeService(Path gameDir, Path intendedFile, String versions) {
         Path base = gameDir.toAbsolutePath().normalize().resolve("packscope");
         this.reportDir = base.resolve("reports");
         this.cache = new IndexCache(base.resolve("cache"));
+        this.intended = new IntendedStore(intendedFile.toAbsolutePath().normalize());
         this.versions = versions;
+    }
+
+    /**
+     * The intended markings. Change them on the render thread ({@code mark}, {@code unmark}, {@code markAllOf} ...);
+     * they apply to the next evaluation without a new scan.
+     */
+    public IntendedStore intended() {
+        return intended;
     }
 
     public Path reportDir() {
@@ -49,15 +60,29 @@ public final class PackscopeService {
         return last;
     }
 
-    /** Scans (cached) and evaluates the order on the scan thread. */
+    /**
+     * Scans (cached) and evaluates the order on the scan thread.
+     *
+     * @param intended snapshot of the intended markings, taken together with the order
+     */
+    public CompletableFuture<ScanResult> evaluate(PackOrder order, PackscopeSettings settings, IntendedSet intended) {
+        return CompletableFuture.supplyAsync(() -> run(order, settings, intended), executor);
+    }
+
+    /** Like {@link #evaluate(PackOrder, PackscopeSettings, IntendedSet)} with the current markings (call on the render thread). */
     public CompletableFuture<ScanResult> evaluate(PackOrder order, PackscopeSettings settings) {
-        return CompletableFuture.supplyAsync(() -> run(order, settings), executor);
+        return evaluate(order, settings, intended.snapshot());
+    }
+
+    /** Like {@link #report(PackOrder, PackscopeSettings, IntendedSet)} with the current markings (call on the render thread). */
+    public CompletableFuture<Report> report(PackOrder order, PackscopeSettings settings) {
+        return report(order, settings, intended.snapshot());
     }
 
     /** Evaluates and writes both report files on the scan thread. */
-    public CompletableFuture<Report> report(PackOrder order, PackscopeSettings settings) {
+    public CompletableFuture<Report> report(PackOrder order, PackscopeSettings settings, IntendedSet intended) {
         return CompletableFuture.supplyAsync(() -> {
-            ScanResult r = run(order, settings);
+            ScanResult r = run(order, settings, intended);
             try {
                 Path md = ReportWriter.write(r, settings, versions, reportDir);
                 LOG.info("Packscope: report written to {} ({} packs, {} conflicts, scan {} ms)", md, order.resourcePackCount(),
@@ -77,13 +102,13 @@ public final class PackscopeService {
         }, executor);
     }
 
-    private ScanResult run(PackOrder order, PackscopeSettings settings) {
+    private ScanResult run(PackOrder order, PackscopeSettings settings, IntendedSet intended) {
         IndexCache c = cache;
         if (!settings.cacheEnabled()) {
             c = new IndexCache(null);
         }
         c.setDiskEnabled(settings.cacheEnabled());
-        ScanResult r = PackEvaluator.evaluate(order, c, settings);
+        ScanResult r = PackEvaluator.evaluate(order, c, settings, intended);
         last = r;
         return r;
     }

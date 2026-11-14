@@ -1,9 +1,8 @@
 {
   "packscope.command.scanning": "Packscope: checking %s active resource packs...",
   "packscope.command.rescan": "Packscope: cache cleared, scanning %s active resource packs again...",
-  "packscope.command.done": "Packscope: %s resource packs, %s conflicts, %s completely covered. Report: %s",
+  "packscope.command.done": "Packscope: %s resource packs, %s conflicts (%s intended), %s completely covered. Report: %s",
   "packscope.command.failed": "Packscope: the report failed (%s). Details are in the log.",
-
   "packscope.configuration.title": "Packscope",
   "packscope.configuration.showInVanillaScreen": "Icons in the vanilla pack screen",
   "packscope.configuration.showInVanillaScreen.tooltip": "Show conflict icons in the vanilla resource pack screen.",
@@ -22,5 +21,9 @@
   "packscope.configuration.autoExportReport": "Report after every reload",
   "packscope.configuration.autoExportReport.tooltip": "Write packscope/reports/packscope-report.md and .json after every resource reload.",
   "packscope.configuration.reportListModOverrides": "List all mod files in the report",
-  "packscope.configuration.reportListModOverrides.tooltip": "List every replaced mod/vanilla file in the report, not only the numbers per mod."
+  "packscope.configuration.reportListModOverrides.tooltip": "List every replaced mod/vanilla file in the report, not only the numbers per mod.",
+  "packscope.configuration.allLanguages": "Count all languages",
+  "packscope.configuration.allLanguages.tooltip": "Count language keys of all languages. Off: only en_us and the selected game language, the ones the game loads.",
+  "packscope.configuration.showIntendedSymbol": "Icon for intended conflicts",
+  "packscope.configuration.showIntendedSymbol.tooltip": "Show a grey icon for packs whose conflicts are all marked as intended. Off: no icon for them."
 }

@@ -9,6 +9,7 @@ import com.drehverschluss.packscope.core.ScanResult;
 import com.drehverschluss.packscope.core.minecraft.PackOrders;
 import com.drehverschluss.packscope.core.minecraft.ReportReloadListener;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.ChatFormatting;
 import net.minecraft.SharedConstants;
@@ -37,8 +38,12 @@ public final class PackscopeNeoForge {
         String versions = "Packscope " + container.getModInfo().getVersion() + " · Minecraft "
             + SharedConstants.getCurrentVersion().getName() + " · NeoForge "
             + ModList.get().getModContainerById("neoforge").map(c -> c.getModInfo().getVersion().toString()).orElse("?");
-        this.service = new PackscopeService(FMLPaths.GAMEDIR.get(), versions);
+        this.service = new PackscopeService(FMLPaths.GAMEDIR.get(), FMLPaths.CONFIGDIR.get().resolve(INTENDED_FILE), versions);
+        this.service.intended().load();
     }
+
+    /** Intended markings, in the config folder so a modpack can ship them (Konzept 4.1). */
+    public static final String INTENDED_FILE = "packscope-intended.json";
 
     public static void init(IEventBus modBus, ModContainer container) {
         instance = new PackscopeNeoForge(container);
@@ -72,6 +77,12 @@ public final class PackscopeNeoForge {
             })));
     }
 
+    /** The current load order with the counted languages. Render thread. */
+    public PackOrder currentOrder(PackscopeSettings settings) {
+        List<String> languages = settings.allLanguages() ? List.of() : PackOrders.loadedLanguages();
+        return PackOrders.fromRepository(Minecraft.getInstance().getResourcePackRepository(), modNames, languages);
+    }
+
     /**
      * Takes the current order on the render thread and writes the report in the background.
      *
@@ -81,7 +92,8 @@ public final class PackscopeNeoForge {
     public CompletableFuture<PackscopeService.Report> report(boolean rescan, boolean chat) {
         Minecraft mc = Minecraft.getInstance();
         PackscopeSettings settings = PackscopeConfig.settings();
-        PackOrder order = PackOrders.fromRepository(mc.getResourcePackRepository(), modNames);
+        if (rescan) service.intended().load();
+        PackOrder order = currentOrder(settings);
         if (chat) {
             message(Component.translatable(rescan ? "packscope.command.rescan" : "packscope.command.scanning",
                 order.resourcePackCount()).withStyle(ChatFormatting.GRAY));
@@ -95,7 +107,7 @@ public final class PackscopeNeoForge {
             } else if (chat) {
                 ScanResult r = report.result();
                 message(Component.translatable("packscope.command.done", order.resourcePackCount(), r.conflictCount(),
-                    r.coveredPacks().size(), fileLink(report.markdown())));
+                    r.intendedCount(), r.coveredPacks().size(), fileLink(report.markdown())));
             }
         }));
         return future;

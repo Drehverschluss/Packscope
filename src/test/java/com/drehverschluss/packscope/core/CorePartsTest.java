@@ -139,6 +139,28 @@ class CorePartsTest {
     }
 
     @Test
+    void identicalMergedFilesAreCopies() throws IOException {
+        Map<String, String> files = Map.of(
+            "assets/minecraft/font/default.json", "{\"providers\":[]}",
+            "assets/t/sounds.json", "{\"e\":{\"sounds\":[\"t:a\"]}}",
+            "assets/t/textures/a.png", "A");
+        Path upper = zip("upper.zip", files);
+        Path copy = zip("copy.zip", files);
+        ScanResult r = PackEvaluator.evaluate(new PackOrder(List.of(ref("upper", upper), ref("copy", copy))), new IndexCache(null),
+            PackscopeSettings.DEFAULTS);
+        ScanResult.PackSummary c = r.summary("copy");
+        assertEquals(PackStatus.COMPLETELY_COVERED, c.status());
+        assertTrue(c.onlyCopies());
+        assertEquals(3, c.copies());
+        assertEquals(PackStatus.NO_CONFLICT, r.summary("upper").status());
+        // a merged file with different content still takes effect
+        Path other = zip("other.zip", Map.of("assets/minecraft/font/default.json", "{\"providers\":[{\"type\":\"space\",\"advances\":{}}]}"));
+        ScanResult r2 = PackEvaluator.evaluate(new PackOrder(List.of(ref("upper", upper), ref("other", other))), new IndexCache(null),
+            PackscopeSettings.DEFAULTS);
+        assertEquals(PackStatus.NO_CONFLICT, r2.summary("other").status());
+    }
+
+    @Test
     void missingZipIsAWarning() {
         PackOrder order = new PackOrder(List.of(ref("gone", tmp.resolve("gone.zip"))));
         ScanResult r = PackEvaluator.evaluate(order, new IndexCache(null), PackscopeSettings.DEFAULTS);
@@ -189,7 +211,8 @@ class CorePartsTest {
         String text = Files.readString(md);
         assertTrue(text.contains("# Packscope report"));
         assertTrue(text.contains("## Load order"));
-        assertTrue(text.contains("Completely covered packs: PS_D_Hidden.zip"));
+        assertTrue(text.contains("Completely covered packs: PS_E_CopyOnly.zip, PS_D_Hidden.zip"));
+        assertTrue(text.contains("Only copies of PS_B_Top (1)"));
         assertTrue(text.contains("`packscope_test:test.event`"));
         JsonObject json = JsonParser.parseString(Files.readString(md.resolveSibling(ReportWriter.JSON_NAME))).getAsJsonObject();
         assertEquals(r.packs().size(), json.getAsJsonArray("order").size());

@@ -18,12 +18,18 @@ import org.jetbrains.annotations.Nullable;
  * @param modName  display name of the mod, else null
  * @param parentId pack this one was expanded from (e.g. {@code mod_resources}), else null
  * @param opener   pack API access for {@link ScanKind#LOOKUP}/{@link ScanKind#FALLBACK}, else null
+ * @param hidden   selected but hidden from the pack screen ({@code Pack.isHidden()}, set by mod code), still loaded
  */
 public record PackRef(String id, String title, PackRole role, ScanKind kind, @Nullable Path path, List<String> overlays,
                       @Nullable String modId, @Nullable String modName, @Nullable String parentId,
-                      @Nullable PackContent.Opener opener) {
+                      @Nullable PackContent.Opener opener, boolean hidden) {
     public PackRef {
         overlays = List.copyOf(overlays);
+    }
+
+    public PackRef(String id, String title, PackRole role, ScanKind kind, @Nullable Path path, List<String> overlays,
+                   @Nullable String modId, @Nullable String modName, @Nullable String parentId, @Nullable PackContent.Opener opener) {
+        this(id, title, role, kind, path, overlays, modId, modName, parentId, opener, false);
     }
 
     public boolean isResourcePack() {

@@ -18,7 +18,8 @@ final class TestPacks {
     /** Top to bottom, as in Konzept/Test-Packs/README.md. */
     static final String[] ORDER = {"PS_Folder/PS_F_Top.zip", "PS_Folder/PS_F_Low", "PS_AtlasFont_2", "PS_AtlasFont_1.zip",
         "PS_ModTex.zip", "PS_Anim_High", "PS_Anim_Low.zip", "PS_Overlay.zip", "PS_Filter.zip", "PS_Sound_Replace",
-        "PS_Sound_Add.zip", "PS_Lang_High", "PS_Lang_Low.zip", "PS_B_Top", "PS_C_Copy.zip", "PS_A_Base.zip", "PS_D_Hidden.zip"};
+        "PS_Sound_Add.zip", "PS_Lang_High", "PS_Lang_Low.zip", "PS_Lang3_High", "PS_Lang3_Low.zip", "PS_B_Top", "PS_E_CopyOnly.zip",
+        "PS_C_Copy.zip", "PS_A_Base.zip", "PS_D_Hidden.zip"};
 
     private TestPacks() {}
 
