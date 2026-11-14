@@ -157,5 +157,8 @@
   "packscope.menu.show.tooltip": "Packscope: öffnet die Konflikte dieses Packs.",
   "packscope.menu.mark_all": "Alle als gewollt markieren",
   "packscope.menu.unmark_all": "Alle Markierungen aufheben",
-  "packscope.narration.icon": "Packscope-Konflikte: %s"
+  "packscope.narration.icon": "Packscope-Konflikte: %s",
+  "packscope.name.injected": "%s (eingefügt)",
+  "packscope.tooltip.children": "Enthält %s Packs:",
+  "packscope.tooltip.child": "  %s: %s"
 }

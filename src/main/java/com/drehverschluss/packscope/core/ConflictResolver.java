@@ -769,7 +769,7 @@ public final class ConflictResolver {
                 index.files().size(), status, wins, losses, intendedWins, intendedLosses, dead, copies, hiddenByFilter, hidesOthers,
                 replacedSoundEvents, intendedSoundEvents, lostSoundEvents, lostToMods, modOverrides, againstMarking, onlyCopies,
                 Collections.unmodifiableMap(winsAgainst), Collections.unmodifiableMap(losesTo), Collections.unmodifiableMap(copiesOf),
-                Collections.unmodifiableMap(modOverridesByOwner), ref.modId(), ref.parentId());
+                Collections.unmodifiableMap(modOverridesByOwner), ref.modId(), ref.parentId(), ref.injected(), ref.injectedBy());
         }
     }
 }

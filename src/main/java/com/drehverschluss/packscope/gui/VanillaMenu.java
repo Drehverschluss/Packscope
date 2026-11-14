@@ -70,6 +70,9 @@ public final class VanillaMenu {
 
     /** Opens the detail screen; {@code packId} null = "all packs". */
     public static void openDetails(Screen parent, ResultSource source, @Nullable String packId) {
-        Minecraft.getInstance().setScreen(new DetailScreen(parent, source, packId));
+        if (parent == null || source == null) return; // no pack screen state (e.g. the screen closed meanwhile)
+        // a pack with children (e.g. eatinganimations_compat) has no own conflicts: show its child (Phase 5C)
+        String id = packId != null && source instanceof LiveResults live ? live.detailId(packId) : packId;
+        Minecraft.getInstance().setScreen(new DetailScreen(parent, source, id));
     }
 }

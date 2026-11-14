@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import org.jetbrains.annotations.Nullable;
@@ -29,7 +30,8 @@ import org.slf4j.LoggerFactory;
  *     <li>folder packs: CRC per file (relative path + size + last modified), in memory and on disk in
  *     {@code packscope/cache/} (only folders on the normal file system, not mod jars)</li>
  *     <li>lookup packs (vanilla, mods): "has this file" per location, memory only</li>
- *     <li>fallback packs: whole index in memory, key = pack id</li>
+ *     <li>fallback packs: whole index in memory, key = pack id, dropped with every resource reload</li>
+ *     <li>built-in packs in mod jars: like zip packs, key = jar path + size + last modified + folder in the jar + overlays</li>
  * </ul>
  * Only used from the scan thread.
  */
@@ -43,6 +45,10 @@ public final class IndexCache {
     private final Map<String, Map<String, Boolean>> lookups = new ConcurrentHashMap<>();
     private final Map<String, Optional<PackFilter>> lookupFilters = new ConcurrentHashMap<>();
     private final Map<Path, FolderCrc> folders = new ConcurrentHashMap<>();
+    /** Where a pack of an unknown supplier really lies ({@link PackContent#location()}), per pack id; empty = nowhere. */
+    private final Map<String, Optional<PackContent.Location>> locations = new ConcurrentHashMap<>();
+    /** Lookup packs whose content can change with every reload (injected by mods). */
+    private final Set<String> dynamicLookups = ConcurrentHashMap.newKeySet();
     private boolean diskEnabled = true;
 
     /** @param cacheDir {@code <game>/packscope/cache}, may be null (no disk cache, e.g. in tests) */
@@ -70,6 +76,34 @@ public final class IndexCache {
 
     void putFallback(String packId, PackIndex index) {
         fallbackIndexes.put(packId, index);
+    }
+
+    /** Location of a pack, null = not asked yet. */
+    @Nullable
+    Optional<PackContent.Location> location(String packId) {
+        return locations.get(packId);
+    }
+
+    void putLocation(String packId, Optional<PackContent.Location> location) {
+        locations.put(packId, location);
+    }
+
+    void markDynamicLookup(String packId) {
+        dynamicLookups.add(packId);
+    }
+
+    /**
+     * Drops what can change with a resource reload: fallback indexes (dynamic packs such as {@code moonlight:merged_pack}
+     * are built anew), the locations of packs with unknown suppliers and the lookups of injected packs (Phase 5C).
+     */
+    public void clearDynamic() {
+        fallbackIndexes.clear();
+        locations.clear();
+        for (String id : dynamicLookups) {
+            lookups.remove(id);
+            lookupFilters.remove(id);
+        }
+        dynamicLookups.clear();
     }
 
     Map<String, Boolean> lookup(String packId) {
@@ -102,6 +136,8 @@ public final class IndexCache {
     public void clear() {
         zipIndexes.clear();
         fallbackIndexes.clear();
+        locations.clear();
+        dynamicLookups.clear();
         lookups.clear();
         lookupFilters.clear();
         folders.clear();

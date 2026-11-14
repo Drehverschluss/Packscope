@@ -19,12 +19,21 @@ import org.jetbrains.annotations.Nullable;
  * @param parentId pack this one was expanded from (e.g. {@code mod_resources}), else null
  * @param opener   pack API access for {@link ScanKind#LOOKUP}/{@link ScanKind#FALLBACK}, else null
  * @param hidden   selected but hidden from the pack screen ({@code Pack.isHidden()}, set by mod code), still loaded
+ * @param injected put into the resource stack by a mod, without the pack repository (e.g. KubeJS, Phase 5C); never in
+ *                 the pack screen
+ * @param injectedBy name of the mod that put it there, if known
  */
 public record PackRef(String id, String title, PackRole role, ScanKind kind, @Nullable Path path, List<String> overlays,
                       @Nullable String modId, @Nullable String modName, @Nullable String parentId,
-                      @Nullable PackContent.Opener opener, boolean hidden) {
+                      @Nullable PackContent.Opener opener, boolean hidden, boolean injected, @Nullable String injectedBy) {
     public PackRef {
         overlays = List.copyOf(overlays);
+    }
+
+    public PackRef(String id, String title, PackRole role, ScanKind kind, @Nullable Path path, List<String> overlays,
+                   @Nullable String modId, @Nullable String modName, @Nullable String parentId, @Nullable PackContent.Opener opener,
+                   boolean hidden) {
+        this(id, title, role, kind, path, overlays, modId, modName, parentId, opener, hidden, false, null);
     }
 
     public PackRef(String id, String title, PackRole role, ScanKind kind, @Nullable Path path, List<String> overlays,

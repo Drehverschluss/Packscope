@@ -112,6 +112,14 @@ public final class PackscopeService {
         }, executor);
     }
 
+    /**
+     * Drops what a resource reload can change: fallback indexes of dynamic packs, locations of packs with unknown
+     * suppliers, lookups of injected packs (Phase 5C). Runs on the scan thread before later jobs.
+     */
+    public CompletableFuture<Void> clearDynamicCache() {
+        return CompletableFuture.runAsync(cache::clearDynamic, executor);
+    }
+
     private ScanResult run(PackOrder order, PackscopeSettings settings, IntendedSet intended) {
         IndexCache c = cache;
         if (!settings.cacheEnabled()) {

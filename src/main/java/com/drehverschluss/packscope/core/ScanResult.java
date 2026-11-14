@@ -85,6 +85,8 @@ public record ScanResult(Instant created, PackOrder order, List<PackSummary> pac
      * @param losesTo             pack id -> items lost to it (the pack whose copy the game uses)
      * @param copiesOf            pack id -> items that are copies of its file
      * @param modOverridesByOwner mod id ("minecraft" for vanilla) -> items replaced
+     * @param injected            put into the resource stack by a mod (not in the pack screen, Phase 5C)
+     * @param injectedBy          name of that mod, if known
      */
     public record PackSummary(String id, String title, PackRole role, ScanKind kind, boolean approximate, boolean hidden,
                               int fileCount, PackStatus status, int wins, int losses, int intendedWins, int intendedLosses,
@@ -92,7 +94,8 @@ public record ScanResult(Instant created, PackOrder order, List<PackSummary> pac
                               int intendedSoundEvents, int lostSoundEvents, int lostToMods, int modOverrides,
                               boolean againstMarking, boolean onlyCopies, Map<String, Integer> winsAgainst,
                               Map<String, Integer> losesTo, Map<String, Integer> copiesOf,
-                              Map<String, Integer> modOverridesByOwner, @Nullable String modId, @Nullable String parentId) {
+                              Map<String, Integer> modOverridesByOwner, @Nullable String modId, @Nullable String parentId,
+                              boolean injected, @Nullable String injectedBy) {
         /** Old name of {@link #copies()}. */
         public int harmless() {
             return copies;

@@ -14,6 +14,12 @@ public interface ModNames {
     /** Display name of a mod, or the id itself. */
     String modName(String modId);
 
+    /** Mod that contains a class (e.g. of a pack a mod puts into the resource stack), or null if unknown. */
+    @Nullable
+    default String modIdForClass(Class<?> type) {
+        return null;
+    }
+
     ModNames NONE = new ModNames() {
         @Override
         public String modIdForPack(String packId) {

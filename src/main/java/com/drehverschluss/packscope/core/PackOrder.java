@@ -32,7 +32,7 @@ public record PackOrder(List<PackRef> packs, List<String> languages) {
 
     /** Key for result caching: ids, roles, overlays in order, and the counted languages. */
     public String key() {
-        return packs.stream().map(p -> p.id() + "|" + p.kind() + "|" + p.overlays() + (p.hidden() ? "|hidden" : ""))
+        return packs.stream().map(p -> p.id() + "|" + p.kind() + "|" + p.overlays() + (p.hidden() ? "|hidden" : "") + (p.injected() ? "|injected" : ""))
             .collect(Collectors.joining("\n")) + "\nlanguages=" + languages;
     }
 

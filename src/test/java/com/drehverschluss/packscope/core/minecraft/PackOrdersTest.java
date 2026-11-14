@@ -68,6 +68,20 @@ class PackOrdersTest {
     }
 
     @Test
+    void onlyChildrenOfModResourcesAreHiddenMods() {
+        // Phase 5C: eatinganimations_compat has children with own resources; they are resource packs that belong to it
+        Pack vanilla = pack("vanilla");
+        Pack modResources = pack("mod_resources").withChildren(List.of(pack("mod/a")));
+        Pack compat = pack("eatinganimations_compat").withChildren(List.of(pack("eating_animations_compat_farmersdelight"),
+            pack("eating_animations_compat_create")));
+        List<Pack> selected = List.of(vanilla, modResources, modResources.getChildren().get(0), compat, compat.getChildren().get(0),
+            compat.getChildren().get(1));
+        assertEquals(List.of("eating_animations_compat_create<eatinganimations_compat", "eating_animations_compat_farmersdelight<eatinganimations_compat",
+            "mod/a<mod_resources#hidden", "vanilla"), ids(PackOrders.entries(selected)),
+            "children like the real stack (last child highest), only mod_resources' children hidden mods");
+    }
+
+    @Test
     void menuOrderGetsThePacksHiddenInTheProfileBack() {
         // Phase 4: the vanilla screen adds every selected pack that is in neither of its lists (hidden by mod code or in
         // a Packed Packs profile). The repository is stale while populateLists runs: a pack the user just disabled is

@@ -16,6 +16,7 @@ public final class Names {
 
     private final Map<String, String> titles = new HashMap<>();
     private final Map<String, Boolean> hidden = new HashMap<>();
+    private final Map<String, Boolean> injected = new HashMap<>();
     private final int maxLength;
 
     public Names(ScanResult result) {
@@ -27,6 +28,7 @@ public final class Names {
         for (PackRef p : result.order().packs()) {
             titles.put(p.id(), p.title());
             hidden.put(p.id(), p.hidden() && p.isResourcePack());
+            injected.put(p.id(), p.injected());
         }
         for (PackSummary s : result.packs()) {
             titles.putIfAbsent(s.id(), s.title());
@@ -43,9 +45,15 @@ public final class Names {
         return hidden.getOrDefault(id, false);
     }
 
-    /** Shortened title; a {@link Line} with "(hidden)" for hidden packs, else a {@link String}. */
+    /** Put into the resource stack by a mod (Phase 5C). */
+    public boolean injected(String id) {
+        return injected.getOrDefault(id, false);
+    }
+
+    /** Shortened title; a {@link Line} with "(injected)"/"(hidden)" for packs without an entry, else a {@link String}. */
     public Object display(String id) {
         String t = shorten(title(id), maxLength);
+        if (injected(id)) return Line.of("packscope.name.injected", t);
         return hidden(id) ? Line.of("packscope.name.hidden", t) : t;
     }
 

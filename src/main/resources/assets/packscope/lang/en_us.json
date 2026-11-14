@@ -157,5 +157,8 @@
   "packscope.menu.show.tooltip": "Packscope: opens the conflicts of this pack.",
   "packscope.menu.mark_all": "Mark all as intended",
   "packscope.menu.unmark_all": "Remove all markings",
-  "packscope.narration.icon": "Packscope conflicts: %s"
+  "packscope.narration.icon": "Packscope conflicts: %s",
+  "packscope.name.injected": "%s (injected)",
+  "packscope.tooltip.children": "Contains %s packs:",
+  "packscope.tooltip.child": "  %s: %s"
 }

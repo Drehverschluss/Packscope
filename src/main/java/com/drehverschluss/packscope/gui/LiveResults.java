@@ -4,8 +4,10 @@ import com.drehverschluss.packscope.core.IntendedSet;
 import com.drehverschluss.packscope.core.IntendedStore;
 import com.drehverschluss.packscope.core.PackOrder;
 import com.drehverschluss.packscope.core.PackRole;
+import com.drehverschluss.packscope.core.PackStatus;
 import com.drehverschluss.packscope.core.PackscopeSettings;
 import com.drehverschluss.packscope.core.ScanResult;
+import com.drehverschluss.packscope.core.minecraft.InjectedStack;
 import com.drehverschluss.packscope.core.minecraft.PackOrders;
 import com.drehverschluss.packscope.gui.model.Line;
 import com.drehverschluss.packscope.gui.model.ResultTracker;
@@ -41,7 +43,10 @@ public abstract class LiveResults implements ResultSource {
     protected final PackRepository repository;
     private final ResultTracker<ScanResult> tracker = new ResultTracker<>(PackscopeUi.newSession(), PackscopeUi.RESULTS,
         System::nanoTime);
-    private final Set<String> parentIds = new HashSet<>();
+    /** Packs whose children are mods ({@code mod_resources}): no icon. */
+    private final Set<String> modParents = new HashSet<>();
+    /** Other packs with children (e.g. {@code eatinganimations_compat}) → their children, top first (Phase 5C). */
+    private final Map<String, List<String>> childrenOf = new HashMap<>();
 
     private List<Pack> menuTopFirst = List.of();
     private PackOrder order = new PackOrder(List.of());
@@ -70,12 +75,24 @@ public abstract class LiveResults implements ResultSource {
      */
     protected final void setOrder(List<Pack> completeTopFirst, Set<String> hiddenIds) {
         long start = System.nanoTime();
-        parentIds.clear();
-        for (Pack p : repository.getAvailablePacks()) if (!p.getChildren().isEmpty()) parentIds.add(p.getId());
+        modParents.clear();
+        childrenOf.clear();
+        for (Pack p : repository.getAvailablePacks()) {
+            if (p.getChildren().isEmpty()) continue;
+            if (PackOrders.MOD_RESOURCES.equals(p.getId())) {
+                modParents.add(p.getId());
+            } else {
+                List<String> kids = new ArrayList<>();
+                for (int i = p.getChildren().size() - 1; i >= 0; i--) kids.add(p.getChildren().get(i).getId());
+                childrenOf.put(p.getId(), kids);
+            }
+        }
         menuTopFirst = List.copyOf(completeTopFirst);
         PackscopeSettings s = platform.settings();
         List<String> languages = s.allLanguages() ? List.of() : PackOrders.loadedLanguages();
-        order = PackOrders.fromTopFirst(menuTopFirst, hiddenIds, platform.modNames(), languages);
+        // packs injected by mods (KubeJS ...) go where their mod puts them for this order (Phase 5C)
+        order = PackOrders.fromTopFirst(menuTopFirst, hiddenIds, platform.modNames(), languages,
+            InjectedStack.read(repository, platform.modNames()));
         request();
         lastUpdateNanos = System.nanoTime() - start;
     }
@@ -105,13 +122,33 @@ public abstract class LiveResults implements ResultSource {
 
     /** Whether the entry of this pack gets an icon (place): not vanilla, not mod resources. */
     public boolean isIconEntry(String packId) {
-        return !"vanilla".equals(packId) && !parentIds.contains(packId);
+        return !"vanilla".equals(packId) && !modParents.contains(packId);
+    }
+
+    /** Pack the detail screen shows for an entry: for a pack with children the child with the most conflicts. */
+    public String detailId(String packId) {
+        List<String> kids = childrenOf.get(packId);
+        ScanResult r = tracker.latest();
+        if (kids == null || kids.isEmpty() || r == null) return packId;
+        String best = kids.get(0);
+        int most = -1;
+        for (String k : kids) {
+            ScanResult.PackSummary s = r.summary(k);
+            int n = s == null ? -1 : s.wins() + s.losses() + s.intendedWins() + s.intendedLosses() + s.replacedSoundEvents();
+            if (n > most) {
+                most = n;
+                best = k;
+            }
+        }
+        return best;
     }
 
     /** Icon of a pack entry now, or null for none. */
     @Nullable
     public StatusLook look(String packId) {
         if (!isIconEntry(packId)) return null;
+        List<String> kids = childrenOf.get(packId);
+        if (kids != null) return parentLook(kids);
         ScanResult r = tracker.drawn();
         if (r == null) return tracker.failed() ? null : StatusLook.CHECKING;
         ScanResult.PackSummary s = r.summary(packId);
@@ -120,9 +157,31 @@ public abstract class LiveResults implements ResultSource {
         return StatusLook.of(s.status(), platform.settings());
     }
 
+    /** Combined icon of a pack with children (Phase 5C). */
+    @Nullable
+    private StatusLook parentLook(List<String> kids) {
+        ScanResult r = tracker.drawn();
+        if (r == null) return tracker.failed() ? null : StatusLook.CHECKING;
+        List<PackStatus> statuses = new ArrayList<>();
+        for (String k : kids) {
+            ScanResult.PackSummary s = r.summary(k);
+            if (s != null && s.role() == PackRole.RESOURCE_PACK) statuses.add(s.status());
+        }
+        if (statuses.isEmpty()) return tracker.shown() == null && !tracker.failed() ? StatusLook.CHECKING : null;
+        return StatusLook.of(TooltipModel.parentStatus(statuses), platform.settings());
+    }
+
     /** Tooltip of a pack entry icon (cached per result). */
     public List<Line> tooltip(String packId) {
         ScanResult r = tracker.drawn();
+        List<String> kids = childrenOf.get(packId);
+        if (kids != null && r != null) {
+            if (r != tooltipsFor) {
+                tooltips.clear();
+                tooltipsFor = r;
+            }
+            return tooltips.computeIfAbsent(packId, id -> TooltipModel.buildParent(r, kids, PackscopeUi.language()));
+        }
         if (r == null || r.summary(packId) == null) return TooltipModel.checking();
         if (r != tooltipsFor) {
             tooltips.clear();

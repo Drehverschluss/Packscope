@@ -54,7 +54,8 @@ public final class PackscopeNeoForge {
         instance = new PackscopeNeoForge(container);
         container.registerConfig(ModConfig.Type.CLIENT, PackscopeConfig.SPEC);
         modBus.addListener(RegisterClientReloadListenersEvent.class, e ->
-            e.registerReloadListener(new ReportReloadListener(PackscopeConfig::settings, () -> instance.report(false, false))));
+            e.registerReloadListener(new ReportReloadListener(PackscopeConfig::settings, () -> instance.report(false, false),
+                () -> instance.service.clearDynamicCache())));
         NeoForge.EVENT_BUS.addListener(RegisterClientCommandsEvent.class, instance::registerCommands);
         NeoForge.EVENT_BUS.addListener(ScreenEvent.Init.Post.class, PackscopeNeoForge::addHeaderButton);
         PackscopeUi.install(new UiPlatform() {

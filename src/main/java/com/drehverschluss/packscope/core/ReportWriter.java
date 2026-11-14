@@ -22,6 +22,7 @@ import java.nio.file.Path;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -208,7 +209,8 @@ public final class ReportWriter {
 
         if (!r.warnings().isEmpty()) {
             sb.append("## Warnings\n\n");
-            for (String w : r.warnings()) sb.append("- ").append(w).append('\n');
+            List<String> ids = r.order().packs().stream().map(PackRef::id).toList();
+            for (String w : groupWarnings(r.warnings(), ids)) sb.append("- ").append(w).append('\n');
             sb.append('\n');
         }
         return sb.toString();
@@ -351,6 +353,8 @@ public final class ReportWriter {
         List<String> n = new ArrayList<>();
         if (p.role() == PackRole.RESOURCE_PACK) {
             if (p.hidden()) n.add("hidden (not in the pack screen)");
+            if (p.injected()) n.add("injected (not in the pack screen)" + (p.injectedBy() != null ? " by " + p.injectedBy() : ""));
+            if (p.parentId() != null) n.add("part of " + p.parentId());
             if (p.onlyCopies()) n.add("only copies of " + top(p.copiesOf(), names, 3));
             else if (p.copies() > 0) n.add(p.copies() + " identical");
             if (p.againstMarking()) n.add("against marking");
@@ -365,6 +369,8 @@ public final class ReportWriter {
             if (p.lostSoundEvents() > 0) n.add(p.lostSoundEvents() + " sound events replaced");
             if (p.modOverrides() > 0) n.add("replaces " + p.modOverrides() + " mod/vanilla items");
             if (p.lostToMods() > 0) n.add(p.lostToMods() + " overridden by mods");
+        } else if (p.injected()) {
+            n.add("injected (not in the pack screen)" + (p.injectedBy() != null ? " by " + p.injectedBy() : ""));
         } else if (p.parentId() != null) {
             n.add("part of " + p.parentId());
         }
@@ -373,10 +379,47 @@ public final class ReportWriter {
 
     private static String roleLabel(PackSummary p) {
         return switch (p.role()) {
-            case RESOURCE_PACK -> p.hidden() ? "resource pack (hidden)" : "resource pack";
+            case RESOURCE_PACK -> p.injected() ? "resource pack (injected)" : p.hidden() ? "resource pack (hidden)" : "resource pack";
             case MOD -> "mod" + (p.modId() != null ? " `" + p.modId() + "`" : "");
             case VANILLA -> "vanilla";
         };
+    }
+
+    /**
+     * Warnings of the report, one line per kind (Phase 5C): warnings are "{@code <pack id>: <message>}"; the same message
+     * of several packs becomes "{@code <message>: N packs – a, b, c}". The fallback-scan note gets a short label.
+     */
+    static List<String> groupWarnings(List<String> warnings, Collection<String> packIds) {
+        List<String> ids = new ArrayList<>(packIds);
+        ids.sort((a, b) -> b.length() - a.length()); // longest first: ids may contain ": "
+        Map<String, List<String>> byMessage = new LinkedHashMap<>();
+        List<String> other = new ArrayList<>();
+        for (String w : warnings) {
+            String pack = null;
+            for (String id : ids) {
+                if (w.startsWith(id + ": ")) {
+                    pack = id;
+                    break;
+                }
+            }
+            if (pack == null) {
+                other.add(w);
+                continue;
+            }
+            byMessage.computeIfAbsent(w.substring(pack.length() + 2), k -> new ArrayList<>()).add(pack);
+        }
+        List<String> out = new ArrayList<>(other);
+        for (Map.Entry<String, List<String>> e : byMessage.entrySet()) {
+            String msg = e.getKey();
+            List<String> packs = e.getValue();
+            if (packs.size() == 1) {
+                out.add(packs.get(0) + ": " + msg);
+                continue;
+            }
+            String label = msg.startsWith("approximate: ") ? "approximate scan (fallback, " + msg.substring("approximate: ".length()) + ")" : msg;
+            out.add(label + ": " + packs.size() + " packs – " + String.join(", ", packs));
+        }
+        return out;
     }
 
     /** The {@code max} largest entries, "+ N more packs" for the rest. */
@@ -440,6 +483,8 @@ public final class ReportWriter {
             o.addProperty("scan", p.kind().id());
             o.addProperty("approximate", p.approximate());
             o.addProperty("hidden", p.hidden());
+            o.addProperty("injected", p.injected());
+            if (p.injectedBy() != null) o.addProperty("injectedBy", p.injectedBy());
             o.addProperty("files", p.fileCount());
             if (p.modId() != null) o.addProperty("modId", p.modId());
             if (p.parentId() != null) o.addProperty("parent", p.parentId());

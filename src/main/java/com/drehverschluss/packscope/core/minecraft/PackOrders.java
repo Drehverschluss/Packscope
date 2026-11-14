@@ -1,5 +1,6 @@
 package com.drehverschluss.packscope.core.minecraft;
 
+import com.drehverschluss.packscope.core.InjectedPacks;
 import com.drehverschluss.packscope.core.ModNames;
 import com.drehverschluss.packscope.core.PackContent;
 import com.drehverschluss.packscope.core.PackOrder;
@@ -29,6 +30,9 @@ import org.jetbrains.annotations.Nullable;
  * repository and the pack objects, which Packed Packs may replace from a background thread.
  */
 public final class PackOrders {
+    /** NeoForge pack that holds the mod packs as children ({@code mod/<modid>}). Only its children are mods (Phase 5C). */
+    public static final String MOD_RESOURCES = "mod_resources";
+
     private PackOrders() {}
 
     /** One entry of the load order, top first: the pack, the pack it was expanded from (or null), hidden flag. */
@@ -42,14 +46,17 @@ public final class PackOrders {
     public static PackOrder fromRepository(PackRepository repository, ModNames mods, List<String> languages) {
         List<PackRef> refs = new ArrayList<>();
         for (Entry e : entries(repository.getSelectedPacks())) refs.add(ref(e.pack(), e.parentId(), e.hidden(), mods));
-        return new PackOrder(refs, languages);
+        // packs injected by mods sit where the real stack has them (Phase 5C)
+        return new PackOrder(InjectedPacks.insert(refs, InjectedStack.read(repository, mods)), languages);
     }
 
     /**
      * Load order from the repository selection ({@code bottom first}, as {@code PackRepository.getSelectedPacks()}):
      * <ul>
-     *     <li>packs with children (NeoForge {@code mod_resources}) are replaced by their children at their place
-     *     (in the load order the children sit directly above their empty parent, the last child highest);</li>
+     *     <li>packs with children (NeoForge {@code mod_resources}, also packs such as {@code eatinganimations_compat})
+     *     are replaced by their children at their place (in the load order the children sit directly above their empty
+     *     parent, the last child highest). Only the children of {@code mod_resources} are mods, hidden from the pack
+     *     screen; children of other packs are resource packs that belong to their parent (Phase 5C);</li>
      *     <li>other hidden packs ({@code Pack.isHidden()}, only possible through mod code) are still loaded by the game
      *     ({@code openAllSelected}) and stay in, marked as hidden.</li>
      * </ul>
@@ -65,7 +72,8 @@ public final class PackOrders {
             if (p.getChildren().isEmpty()) {
                 part.add(new Entry(p, null, p.isHidden()));
             } else {
-                for (int i = p.getChildren().size() - 1; i >= 0; i--) part.add(new Entry(p.getChildren().get(i), p.getId(), true));
+                boolean mods = MOD_RESOURCES.equals(p.getId());
+                for (int i = p.getChildren().size() - 1; i >= 0; i--) part.add(new Entry(p.getChildren().get(i), p.getId(), mods));
             }
             topFirst.addAll(0, part);
         }
@@ -86,16 +94,26 @@ public final class PackOrders {
      * hidden in a Packed Packs profile) are marked as hidden like the packs hidden by mod code.
      */
     public static PackOrder fromTopFirst(List<Pack> topFirst, Set<String> hiddenIds, ModNames mods, List<String> languages) {
+        return fromTopFirst(topFirst, hiddenIds, mods, languages, List.of());
+    }
+
+    /**
+     * Like {@link #fromTopFirst(List, Set, ModNames, List)}, with the packs injected by mods put where they belong for
+     * this order ({@link InjectedPacks#insert}, Phase 5C).
+     */
+    public static PackOrder fromTopFirst(List<Pack> topFirst, Set<String> hiddenIds, ModNames mods, List<String> languages,
+                                         List<InjectedPacks.Injected> injected) {
         List<PackRef> refs = new ArrayList<>();
         for (Pack pack : topFirst) {
             List<Pack> ch = pack.getChildren();
             if (ch.isEmpty()) {
                 refs.add(ref(pack, null, pack.isHidden() || hiddenIds.contains(pack.getId()), mods));
             } else {
-                for (int i = ch.size() - 1; i >= 0; i--) refs.add(ref(ch.get(i), pack.getId(), true, mods));
+                boolean modPacks = MOD_RESOURCES.equals(pack.getId());
+                for (int i = ch.size() - 1; i >= 0; i--) refs.add(ref(ch.get(i), pack.getId(), modPacks, mods));
             }
         }
-        return new PackOrder(refs, languages);
+        return new PackOrder(InjectedPacks.insert(refs, injected), languages);
     }
 
     /**
@@ -156,7 +174,7 @@ public final class PackOrders {
         PackAccessor acc = (PackAccessor) pack;
         List<String> overlays = acc.packscope$getMetadata().overlays();
         PackContent.Opener opener = () -> new PackResourcesContent(pack.open());
-        if (parentId != null) {
+        if (MOD_RESOURCES.equals(parentId)) {
             String modId = mods.modIdForPack(id);
             return new PackRef(id, title, PackRole.MOD, ScanKind.LOOKUP, null, overlays, modId,
                 modId == null ? null : mods.modName(modId), parentId, opener, true);
@@ -167,12 +185,14 @@ public final class PackOrders {
         Pack.ResourcesSupplier supplier = acc.packscope$getResources();
         if (supplier instanceof FilePackResources.FileResourcesSupplier) {
             Path path = ((FileResourcesSupplierAccessor) supplier).packscope$getContent().toPath().toAbsolutePath().normalize();
-            return new PackRef(id, title, PackRole.RESOURCE_PACK, ScanKind.ZIP, path, overlays, null, null, null, opener, hidden);
+            return new PackRef(id, title, PackRole.RESOURCE_PACK, ScanKind.ZIP, path, overlays, null, null, parentId, opener, hidden);
         }
         if (supplier instanceof PathPackResources.PathResourcesSupplier) {
             Path path = ((PathResourcesSupplierAccessor) supplier).packscope$getContent().toAbsolutePath().normalize();
-            return new PackRef(id, title, PackRole.RESOURCE_PACK, ScanKind.FOLDER, path, overlays, null, null, null, opener, hidden);
+            return new PackRef(id, title, PackRole.RESOURCE_PACK, ScanKind.FOLDER, path, overlays, null, null, parentId, opener, hidden);
         }
-        return new PackRef(id, title, PackRole.RESOURCE_PACK, ScanKind.FALLBACK, null, overlays, null, null, null, opener, hidden);
+        // other suppliers (built-in packs of mods, dynamic packs): the scan thread opens the pack and scans it exactly if it
+        // turns out to be a folder or zip (also inside a mod jar), else through the fallback listing (Phase 5C)
+        return new PackRef(id, title, PackRole.RESOURCE_PACK, ScanKind.FALLBACK, null, overlays, null, null, parentId, opener, hidden);
     }
 }

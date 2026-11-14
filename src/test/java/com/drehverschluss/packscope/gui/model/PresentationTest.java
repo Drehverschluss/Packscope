@@ -175,7 +175,7 @@ class PresentationTest {
     private static ScanResult.PackSummary summary(String id, String title, PackStatus status, boolean hidden, Map<String, Integer> wins,
                                                   Map<String, Integer> loses) {
         return new ScanResult.PackSummary(id, title, PackRole.RESOURCE_PACK, ScanKind.ZIP, false, hidden, 1, status, wins.size(), loses.size(),
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, false, wins, loses, Map.of(), Map.of(), null, null);
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, false, wins, loses, Map.of(), Map.of(), null, null, false, null);
     }
 
     // ------------------------------------------------------------------------------------------------ groups, sorting

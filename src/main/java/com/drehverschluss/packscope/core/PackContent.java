@@ -28,6 +28,39 @@ public interface PackContent extends AutoCloseable {
     /** Best-effort listing of all files (fallback scan). CRC is computed from the content. */
     Map<String, FileEntry> listAll(String[] knownFolders, String[] rootFiles) throws IOException;
 
+    /**
+     * Where the files of the pack really are, if that can be told from its pack type (Phase 5C): a folder, a zip file,
+     * or a folder inside a mod jar. Null = unknown (dynamic packs), only the fallback scan is possible.
+     */
+    @Nullable
+    default Location location() {
+        return null;
+    }
+
+    /**
+     * Files of a pack on disk.
+     *
+     * @param path   folder (pack root, {@code assets/} below it) or zip/jar file
+     * @param prefix for zip/jar: folder of the pack inside the file ("" = root, else ending with "/")
+     * @param zip    whether {@code path} is a zip/jar file
+     * @param inJar  a built-in pack inside a mod jar (shown as scan kind "jar")
+     * @param skip   folders below {@code assets/<namespace>/} the pack does not serve although they are there (e.g.
+     *               {@code lang/} for the KubeJS folder pack, which hands language files to another pack)
+     */
+    record Location(java.nio.file.Path path, String prefix, boolean zip, boolean inJar, java.util.List<String> skip) {
+        public Location(java.nio.file.Path path, String prefix, boolean zip, boolean inJar) {
+            this(path, prefix, zip, inJar, java.util.List.of());
+        }
+
+        /** Whether {@code namespace:path} is one of the skipped folders. */
+        public boolean skips(String location) {
+            if (skip.isEmpty()) return false;
+            String p = Locations.path(location);
+            for (String s : skip) if (p.startsWith(s)) return true;
+            return false;
+        }
+    }
+
     @Override
     void close();
 

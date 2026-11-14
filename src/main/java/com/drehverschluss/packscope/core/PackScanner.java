@@ -40,7 +40,7 @@ public final class PackScanner {
         return switch (ref.kind()) {
             case ZIP -> zip(ref, cache);
             case FOLDER -> folder(ref, cache);
-            case FALLBACK -> fallback(ref, cache);
+            case FALLBACK, JAR -> fallback(ref, cache);
             case LOOKUP -> new PackIndex(ref.id(), ScanKind.LOOKUP, Map.of(), null, false, List.of(), 0);
         };
     }
@@ -48,29 +48,41 @@ public final class PackScanner {
     // ------------------------------------------------------------------------------------------------ zip
 
     static PackIndex zip(PackRef ref, IndexCache cache) {
-        Path file = ref.path();
+        return zipAt(ref, ref.path(), "", ScanKind.ZIP, cache);
+    }
+
+    /**
+     * Index of a pack inside a zip file: the pack root is {@code inner} ("" or a folder ending with "/", e.g. the folder
+     * of a built-in pack in a mod jar). CRC and size come from the zip directory.
+     */
+    static PackIndex zipAt(PackRef ref, Path file, String inner, ScanKind kind, IndexCache cache) {
         long start = System.nanoTime();
         List<String> warnings = new ArrayList<>();
         String key;
         try {
             BasicFileAttributes attrs = Files.readAttributes(file, BasicFileAttributes.class);
-            key = file + "|" + attrs.size() + "|" + attrs.lastModifiedTime().toMillis() + "|" + ref.overlays();
+            key = file + "|" + attrs.size() + "|" + attrs.lastModifiedTime().toMillis() + "|" + inner + "|" + ref.overlays();
         } catch (IOException e) {
             return failed(ref, "cannot read " + file + ": " + e.getMessage(), start);
         }
         PackIndex cached = cache.zip(key);
-        if (cached != null) return cached;
+        if (cached != null) return cached.packId().equals(ref.id()) ? cached
+            : new PackIndex(ref.id(), cached.kind(), cached.files(), cached.filter(), cached.approximate(), cached.warnings(), cached.scanNanos());
 
         List<String> prefixes = prefixes(ref.overlays());
         List<Map<String, FileEntry>> perPrefix = new ArrayList<>();
         for (int i = 0; i < prefixes.size(); i++) perPrefix.add(new HashMap<>());
         PackFilter filter = null;
+        boolean sawInner = false;
         try (ZipFile zip = new ZipFile(file.toFile())) {
             Enumeration<? extends ZipEntry> en = zip.entries();
             while (en.hasMoreElements()) {
                 ZipEntry e = en.nextElement();
                 if (e.isDirectory()) continue;
                 String name = e.getName();
+                if (!name.startsWith(inner)) continue;
+                sawInner = true;
+                name = name.substring(inner.length());
                 for (int i = 0; i < prefixes.size(); i++) {
                     String base = assetsRoot(prefixes.get(i));
                     if (name.startsWith(base)) {
@@ -79,7 +91,7 @@ public final class PackScanner {
                     }
                 }
             }
-            ZipEntry meta = zip.getEntry("pack.mcmeta");
+            ZipEntry meta = zip.getEntry(inner + "pack.mcmeta");
             if (meta != null) {
                 try (InputStream in = zip.getInputStream(meta)) {
                     filter = PackFilter.parse(in.readAllBytes());
@@ -87,10 +99,11 @@ public final class PackScanner {
                     warnings.add("broken filter in pack.mcmeta: " + ex.getMessage());
                 }
             }
+            if (!inner.isEmpty() && !sawInner) return failed(ref, "folder " + inner + " not found in " + file, start);
         } catch (IOException e) {
             return failed(ref, "cannot open zip " + file + ": " + e.getMessage(), start);
         }
-        PackIndex index = new PackIndex(ref.id(), ScanKind.ZIP, merge(perPrefix), filter, false, warnings, System.nanoTime() - start);
+        PackIndex index = new PackIndex(ref.id(), kind, merge(perPrefix), filter, false, warnings, System.nanoTime() - start);
         cache.putZip(key, index);
         return index;
     }
@@ -98,7 +111,17 @@ public final class PackScanner {
     // ------------------------------------------------------------------------------------------------ folder
 
     static PackIndex folder(PackRef ref, IndexCache cache) {
-        Path root = ref.path();
+        // a folder inside a mod jar: read the zip directory of the jar instead of unpacking every file (Phase 5C)
+        PackContent.Location jar = JarPaths.locate(ref.path());
+        if (jar != null) {
+            PackIndex index = zipAt(ref, jar.path(), jar.prefix(), ScanKind.JAR, cache);
+            if (!index.approximate()) return index;
+        }
+        return folderAt(ref, ref.path(), cache);
+    }
+
+    /** Index of a pack folder ({@code assets/} below {@code root}); also a folder inside a mod jar (union file system). */
+    static PackIndex folderAt(PackRef ref, Path root, IndexCache cache) {
         long start = System.nanoTime();
         List<String> warnings = new ArrayList<>();
         IndexCache.FolderCrc crcCache = cache.folder(root);
@@ -157,6 +180,33 @@ public final class PackScanner {
     static PackIndex fallback(PackRef ref, IndexCache cache) {
         PackIndex cached = cache.fallback(ref.id());
         if (cached != null) return cached;
+        // Phase 5C: many packs of unknown suppliers (built-in packs in mod jars, packs injected by mods) open as a plain
+        // folder or zip pack: then scan exactly, the pack API is only used to find out where the files are
+        Optional<PackContent.Location> where = cache.location(ref.id());
+        if (where == null) {
+            where = Optional.empty();
+            if (ref.opener() != null) {
+                try (PackContent content = ref.opener().open()) {
+                    where = Optional.ofNullable(content.location());
+                } catch (Exception ignored) {
+                    // read again below through the fallback listing, which reports the problem
+                }
+            }
+            cache.putLocation(ref.id(), where);
+        }
+        if (where.isPresent()) {
+            PackContent.Location l = where.get();
+            PackIndex exact = l.zip() ? zipAt(ref, l.path(), l.prefix(), l.inJar() ? ScanKind.JAR : ScanKind.ZIP, cache)
+                : folderAt(ref, l.path(), cache);
+            if (!exact.approximate()) {
+                if (l.skip().isEmpty()) return exact;
+                Map<String, FileEntry> served = new HashMap<>();
+                exact.files().forEach((loc, e) -> {
+                    if (!l.skips(loc)) served.put(loc, e);
+                });
+                return new PackIndex(exact.packId(), exact.kind(), served, exact.filter(), false, exact.warnings(), exact.scanNanos());
+            }
+        }
         long start = System.nanoTime();
         List<String> warnings = new ArrayList<>();
         Map<String, FileEntry> files = Map.of();
@@ -189,6 +239,7 @@ public final class PackScanner {
      */
     public static PackIndex lookup(PackRef ref, Collection<String> locations, IndexCache cache) {
         long start = System.nanoTime();
+        if (ref.injected()) cache.markDynamicLookup(ref.id());
         Map<String, Boolean> known = cache.lookup(ref.id());
         List<String> warnings = new ArrayList<>();
         List<String> missing = new ArrayList<>();

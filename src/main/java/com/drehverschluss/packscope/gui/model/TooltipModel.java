@@ -92,6 +92,47 @@ public final class TooltipModel {
         return lines;
     }
 
+    /**
+     * Status of a pack that holds other packs as children (e.g. {@code eatinganimations_compat}, Phase 5C): the most
+     * important warning of a child first, else wins/loses/both from all children, else intended only, else no conflict.
+     */
+    public static PackStatus parentStatus(List<PackStatus> children) {
+        for (PackStatus w : List.of(PackStatus.COMPLETELY_COVERED, PackStatus.AGAINST_MARKING, PackStatus.REPLACES_SOUNDS)) {
+            if (children.contains(w)) return w;
+        }
+        boolean wins = false;
+        boolean loses = false;
+        for (PackStatus s : children) {
+            if (s == PackStatus.WINS || s == PackStatus.WINS_AND_LOSES) wins = true;
+            if (s == PackStatus.LOSES || s == PackStatus.WINS_AND_LOSES) loses = true;
+        }
+        if (wins && loses) return PackStatus.WINS_AND_LOSES;
+        if (wins) return PackStatus.WINS;
+        if (loses) return PackStatus.LOSES;
+        return children.contains(PackStatus.INTENDED_ONLY) ? PackStatus.INTENDED_ONLY : PackStatus.NO_CONFLICT;
+    }
+
+    /** Tooltip of a parent pack: combined status, then every child with its status (top first). */
+    public static List<Line> buildParent(ScanResult result, List<String> childIds, String lang) {
+        List<Line> lines = new ArrayList<>();
+        Names names = new Names(result);
+        List<PackStatus> statuses = new ArrayList<>();
+        List<Line> rows = new ArrayList<>();
+        for (String id : childIds) {
+            PackSummary s = result.summary(id);
+            if (s == null) continue;
+            statuses.add(s.status());
+            rows.add(Line.of(Line.Tone.NEUTRAL, "packscope.tooltip.child", names.display(id),
+                Line.of(StatusLook.tone(s.status()), StatusLook.key(s.status()))));
+        }
+        PackStatus status = parentStatus(statuses);
+        lines.add(Line.of(StatusLook.tone(status), StatusLook.key(status)));
+        lines.add(Line.of(Line.Tone.NEUTRAL, "packscope.tooltip.children", Numbers.format(rows.size(), lang)));
+        lines.addAll(rows);
+        lines.add(Line.of(Line.Tone.DARK_GREY, "packscope.tooltip.click"));
+        return lines;
+    }
+
     private static void groupList(List<Line> lines, String header, List<ConflictView.Group> groups, Names names, String lang,
                                   Line.Tone tone) {
         if (groups.isEmpty()) return;
