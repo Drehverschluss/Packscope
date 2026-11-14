@@ -1,6 +1,7 @@
 package com.drehverschluss.packscope.core;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -81,10 +82,19 @@ public final class PackscopeService {
 
     /** Evaluates and writes both report files on the scan thread. */
     public CompletableFuture<Report> report(PackOrder order, PackscopeSettings settings, IntendedSet intended) {
+        return report(order, settings, intended, List.of());
+    }
+
+    /**
+     * Evaluates and writes both report files on the scan thread.
+     *
+     * @param notes extra lines for the head of the report (e.g. "order from the pack screen, not applied yet")
+     */
+    public CompletableFuture<Report> report(PackOrder order, PackscopeSettings settings, IntendedSet intended, List<String> notes) {
         return CompletableFuture.supplyAsync(() -> {
             ScanResult r = run(order, settings, intended);
             try {
-                Path md = ReportWriter.write(r, settings, versions, reportDir);
+                Path md = ReportWriter.write(r, settings, versions, notes, reportDir);
                 LOG.info("Packscope: report written to {} ({} packs, {} conflicts, scan {} ms)", md, order.resourcePackCount(),
                     r.conflictCount(), r.scanNanos() / 1_000_000);
                 return new Report(r, md);

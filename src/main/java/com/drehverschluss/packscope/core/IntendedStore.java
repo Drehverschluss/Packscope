@@ -164,6 +164,16 @@ public final class IntendedStore {
         return true;
     }
 
+    /**
+     * Removes the marking with exactly these {@code winner}/{@code loser} strings as written in the file (also base-name
+     * and {@code regex:} markings). Returns false if there is none.
+     */
+    public synchronized boolean remove(IntendedMarking marking) {
+        boolean changed = markings.removeIf(m -> m.winner().equals(marking.winner()) && m.loser().equals(marking.loser()));
+        if (changed) save();
+        return changed;
+    }
+
     /** Removes every marking that says "{@code winnerId} over {@code loserId}". */
     public synchronized boolean unmark(String winnerId, String loserId) {
         boolean changed = markings.removeIf(m -> m.covers(winnerId, loserId));

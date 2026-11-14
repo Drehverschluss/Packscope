@@ -8,6 +8,11 @@ import com.drehverschluss.packscope.core.PackscopeSettings;
 import com.drehverschluss.packscope.core.ScanResult;
 import com.drehverschluss.packscope.core.minecraft.PackOrders;
 import com.drehverschluss.packscope.core.minecraft.ReportReloadListener;
+import com.drehverschluss.packscope.gui.HeaderButton;
+import com.drehverschluss.packscope.gui.MenuStateHolder;
+import com.drehverschluss.packscope.gui.PackscopeUi;
+import com.drehverschluss.packscope.gui.UiPlatform;
+import net.neoforged.neoforge.client.event.ScreenEvent;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -51,6 +56,30 @@ public final class PackscopeNeoForge {
         modBus.addListener(RegisterClientReloadListenersEvent.class, e ->
             e.registerReloadListener(new ReportReloadListener(PackscopeConfig::settings, () -> instance.report(false, false))));
         NeoForge.EVENT_BUS.addListener(RegisterClientCommandsEvent.class, instance::registerCommands);
+        NeoForge.EVENT_BUS.addListener(ScreenEvent.Init.Post.class, PackscopeNeoForge::addHeaderButton);
+        PackscopeUi.install(new UiPlatform() {
+            @Override
+            public PackscopeService service() {
+                return instance.service;
+            }
+
+            @Override
+            public PackscopeSettings settings() {
+                return PackscopeConfig.settings();
+            }
+
+            @Override
+            public ModNames modNames() {
+                return instance.modNames;
+            }
+        });
+    }
+
+    /** "Conflicts" button in the header of the vanilla resource pack screen (only where Packscope is active). */
+    private static void addHeaderButton(ScreenEvent.Init.Post event) {
+        if (event.getScreen() instanceof MenuStateHolder holder && holder.packscope$state() != null) {
+            event.addListener(new HeaderButton(event.getScreen(), holder.packscope$state()));
+        }
     }
 
     public static PackscopeNeoForge get() {
@@ -98,7 +127,10 @@ public final class PackscopeNeoForge {
             message(Component.translatable(rescan ? "packscope.command.rescan" : "packscope.command.scanning",
                 order.resourcePackCount()).withStyle(ChatFormatting.GRAY));
         }
-        if (rescan) service.clearCache();
+        if (rescan) {
+            service.clearCache();
+            PackscopeUi.clearCache();
+        }
         CompletableFuture<PackscopeService.Report> future = service.report(order, settings);
         future.whenComplete((report, error) -> mc.execute(() -> {
             if (error != null) {

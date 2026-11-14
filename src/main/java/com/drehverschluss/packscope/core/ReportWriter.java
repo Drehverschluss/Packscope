@@ -43,10 +43,19 @@ public final class ReportWriter {
 
     /** Writes both files into {@code dir} and returns the path of the Markdown file. */
     public static Path write(ScanResult result, PackscopeSettings settings, String versions, Path dir) throws IOException {
+        return write(result, settings, versions, List.of(), dir);
+    }
+
+    /**
+     * Writes both files into {@code dir} and returns the path of the Markdown file.
+     *
+     * @param notes extra lines for the head of the report, e.g. that the order from the pack screen is not applied yet
+     */
+    public static Path write(ScanResult result, PackscopeSettings settings, String versions, List<String> notes, Path dir) throws IOException {
         Files.createDirectories(dir);
         Path md = dir.resolve(MD_NAME);
-        writeAtomic(md, markdown(result, settings, versions));
-        writeAtomic(dir.resolve(JSON_NAME), GSON.toJson(json(result, settings, versions)));
+        writeAtomic(md, markdown(result, settings, versions, notes));
+        writeAtomic(dir.resolve(JSON_NAME), GSON.toJson(json(result, settings, versions, notes)));
         return md;
     }
 
@@ -61,10 +70,16 @@ public final class ReportWriter {
     // ------------------------------------------------------------------------------------------------ markdown
 
     public static String markdown(ScanResult r, PackscopeSettings settings, String versions) {
+        return markdown(r, settings, versions, List.of());
+    }
+
+    /** @param notes extra lines for the head of the report */
+    public static String markdown(ScanResult r, PackscopeSettings settings, String versions, List<String> notes) {
         Map<String, String> names = names(r);
         StringBuilder sb = new StringBuilder();
         List<PackSummary> rps = r.packs().stream().filter(p -> p.role() == PackRole.RESOURCE_PACK).toList();
         sb.append("# Packscope report\n\n");
+        for (String note : notes) sb.append("> **Note:** ").append(note).append("\n\n");
         sb.append("- Generated: ").append(TIME.format(r.created())).append('\n');
         sb.append("- ").append(versions).append('\n');
         sb.append("- Active packs: ").append(rps.size()).append(" resource packs, ")
@@ -396,9 +411,15 @@ public final class ReportWriter {
     // ------------------------------------------------------------------------------------------------ json
 
     public static JsonObject json(ScanResult r, PackscopeSettings settings, String versions) {
+        return json(r, settings, versions, List.of());
+    }
+
+    /** @param notes extra lines for the head of the report ({@code "notes"}) */
+    public static JsonObject json(ScanResult r, PackscopeSettings settings, String versions, List<String> notes) {
         JsonObject root = new JsonObject();
         root.addProperty("generated", r.created().toString());
         root.addProperty("versions", versions);
+        if (!notes.isEmpty()) root.add("notes", strings(notes));
         root.addProperty("scanMillis", r.scanNanos() / 1_000_000.0);
         root.addProperty("evaluationMillis", r.resolveNanos() / 1_000_000.0);
         root.addProperty("conflicts", r.conflictCount());

@@ -6,7 +6,13 @@
   "client": [
     "PackAccessor",
     "FileResourcesSupplierAccessor",
-    "PathResourcesSupplierAccessor"
+    "PathResourcesSupplierAccessor",
+    "PackSelectionScreenAccessor",
+    "PackSelectionModelAccessor",
+    "TransferableSelectionListAccessor",
+    "AbstractSelectionListInvoker",
+    "PackSelectionScreenMixin",
+    "PackEntryMixin"
   ],
   "injectors": {
     "defaultRequire": 1

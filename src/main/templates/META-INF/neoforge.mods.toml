@@ -13,7 +13,7 @@ description='''${mod_description}'''
 # Client-only mod without a server part: never mark a server as incompatible
 displayTest="IGNORE_ALL_VERSION"
 
-# Accessors only, client section (never applied on a dedicated server)
+# Client section only (never applied on a dedicated server): accessors and the vanilla pack screen hooks
 [[mixins]]
 config="${mod_id}.mixins.json"
 
