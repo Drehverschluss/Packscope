@@ -64,7 +64,7 @@ never as a warning.
 | Mod | Version | Needed |
 |---|---|---|
 | NeoForge | `21.1.265` or newer | required |
-| [Packed Packs](https://www.curseforge.com/minecraft/mc-mods/packed-packs) by fishstiz | `2.3` or newer (tested with `2.3.1`) | optional |
+| [Packed Packs](https://www.curseforge.com/minecraft/mc-mods/packed-packs) by fishstiz | `2.3` or newer (tested with `2.4.0`) | optional |
 
 ## What it does
 
