@@ -1,6 +1,7 @@
 package com.drehverschluss.packscope.gui;
 
 import com.drehverschluss.packscope.core.ScanResult;
+import com.drehverschluss.packscope.gui.model.ResultTracker;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
@@ -8,7 +9,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Entry of the UI: the platform (set once by the loader part), the small result cache shared by all pack screens of
- * the session, and the game language for numbers. Render thread only.
+ * the session (vanilla and Packed Packs), and the game language for numbers. Render thread only.
  */
 public final class PackscopeUi {
     /** Results kept per order key (order + markings version + settings). */
@@ -18,13 +19,24 @@ public final class PackscopeUi {
     private static UiPlatform platform;
     private static int session;
 
-    /** Result for one order key, from the pack screen session {@code session}. */
-    record Cached(ScanResult result, int session) {}
-
-    private static final Map<String, Cached> CACHE = new LinkedHashMap<>(32, 0.75f, true) {
+    private static final Map<String, ResultTracker.Cached<ScanResult>> CACHE = new LinkedHashMap<>(32, 0.75f, true) {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<String, Cached> eldest) {
+        protected boolean removeEldestEntry(Map.Entry<String, ResultTracker.Cached<ScanResult>> eldest) {
             return size() > CACHE_SIZE;
+        }
+    };
+
+    /** The cache as seen by a {@link ResultTracker}. */
+    static final ResultTracker.Cache<ScanResult> RESULTS = new ResultTracker.Cache<>() {
+        @Nullable
+        @Override
+        public ResultTracker.Cached<ScanResult> get(String key) {
+            return CACHE.get(key);
+        }
+
+        @Override
+        public void put(String key, ScanResult result, int s) {
+            CACHE.put(key, new ResultTracker.Cached<>(result, s));
         }
     };
 
@@ -47,15 +59,6 @@ public final class PackscopeUi {
     /** A new pack screen was opened: results of earlier screens are only shown until they are checked again. */
     static int newSession() {
         return ++session;
-    }
-
-    @Nullable
-    static Cached cached(String key) {
-        return CACHE.get(key);
-    }
-
-    static void put(String key, ScanResult result, int session) {
-        CACHE.put(key, new Cached(result, session));
     }
 
     /** Selected game language ({@code en_us}, {@code de_de} ...) for the number format. */

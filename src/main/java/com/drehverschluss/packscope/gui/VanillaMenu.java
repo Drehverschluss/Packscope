@@ -21,7 +21,7 @@ public final class VanillaMenu {
     public static final int VANILLA_TITLE_WIDTH = 157;
     /** Title width in entries with an icon place: icon + 2 px less. */
     public static final int SHORT_TITLE_WIDTH = VANILLA_TITLE_WIDTH - StatusIcons.SIZE - 2;
-    public static final int TOOLTIP_WIDTH = 260;
+    public static final int TOOLTIP_WIDTH = 300;
 
     private VanillaMenu() {}
 
@@ -49,7 +49,7 @@ public final class VanillaMenu {
      *
      * @return whether an icon was drawn (only then a click on it opens the details)
      */
-    public static boolean render(GuiGraphics g, Screen screen, MenuState state, String packId, int left, int top, int width,
+    public static boolean render(GuiGraphics g, Screen screen, LiveResults state, String packId, int left, int top, int width,
                                  boolean scrollbar, int mouseX, int mouseY, boolean hovering) {
         StatusLook look = state.look(packId);
         if (look == null) return false;
@@ -69,7 +69,7 @@ public final class VanillaMenu {
     }
 
     /** Opens the detail screen; {@code packId} null = "all packs". */
-    public static void openDetails(Screen parent, MenuState state, @Nullable String packId) {
-        Minecraft.getInstance().setScreen(new DetailScreen(parent, state, packId));
+    public static void openDetails(Screen parent, ResultSource source, @Nullable String packId) {
+        Minecraft.getInstance().setScreen(new DetailScreen(parent, source, packId));
     }
 }

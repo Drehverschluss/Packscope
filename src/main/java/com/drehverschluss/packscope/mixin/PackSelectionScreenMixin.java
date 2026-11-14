@@ -2,6 +2,7 @@ package com.drehverschluss.packscope.mixin;
 
 import com.drehverschluss.packscope.gui.MenuState;
 import com.drehverschluss.packscope.gui.MenuStateHolder;
+import net.minecraft.client.gui.screens.packs.PackSelectionModel;
 import net.minecraft.client.gui.screens.packs.PackSelectionScreen;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
@@ -35,8 +36,9 @@ public abstract class PackSelectionScreenMixin implements MenuStateHolder {
     @Inject(method = "populateLists", at = @At("TAIL"))
     private void packscope$afterPopulate(CallbackInfo ci) {
         if (packscope$menuState == null) return;
-        PackSelectionModelAccessor model = (PackSelectionModelAccessor) ((PackSelectionScreenAccessor) this).packscope$getModel();
-        packscope$menuState.update(model.packscope$getSelected());
+        PackSelectionModel model = ((PackSelectionScreenAccessor) this).packscope$getModel();
+        PackSelectionModelAccessor acc = (PackSelectionModelAccessor) model;
+        packscope$menuState.update(acc.packscope$getSelected(), acc.packscope$getUnselected(), model);
     }
 
     @Nullable

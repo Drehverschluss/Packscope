@@ -15,6 +15,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.FilePackResources;
 import net.minecraft.server.packs.PathPackResources;
@@ -77,11 +78,19 @@ public final class PackOrders {
      * sit in the repository selection (directly above the next visible pack below them), see {@link #completeMenuOrder}.
      */
     public static PackOrder fromTopFirst(List<Pack> topFirst, ModNames mods, List<String> languages) {
+        return fromTopFirst(topFirst, Set.of(), mods, languages);
+    }
+
+    /**
+     * Like {@link #fromTopFirst(List, ModNames, List)}; packs in {@code hiddenIds} (no entry in the pack screen, e.g.
+     * hidden in a Packed Packs profile) are marked as hidden like the packs hidden by mod code.
+     */
+    public static PackOrder fromTopFirst(List<Pack> topFirst, Set<String> hiddenIds, ModNames mods, List<String> languages) {
         List<PackRef> refs = new ArrayList<>();
         for (Pack pack : topFirst) {
             List<Pack> ch = pack.getChildren();
             if (ch.isEmpty()) {
-                refs.add(ref(pack, null, pack.isHidden(), mods));
+                refs.add(ref(pack, null, pack.isHidden() || hiddenIds.contains(pack.getId()), mods));
             } else {
                 for (int i = ch.size() - 1; i >= 0; i--) refs.add(ref(ch.get(i), pack.getId(), true, mods));
             }
@@ -95,13 +104,26 @@ public final class PackOrders {
      * Hidden packs below every visible pack go to the bottom. Children of other packs are not added (expanded later).
      */
     public static List<Pack> completeMenuOrder(List<Pack> menuTopFirst, Collection<Pack> repositoryBottomFirst) {
+        return completeMenuOrder(menuTopFirst, repositoryBottomFirst, Pack::isHidden);
+    }
+
+    /**
+     * Adds every pack of the repository selection that {@code missing} accepts and that is not in the screen order yet
+     * (top first), with the neighbour rule of {@link #completeMenuOrder(List, Collection)}: directly above the nearest
+     * pack below it in the repository that is in the order; at the bottom if there is none. Children of other packs are
+     * never added (expanded later). The vanilla screen accepts every pack that is in neither of its lists (hidden by mod
+     * code or in a Packed Packs profile, Phase 4); the Packed Packs screen only {@code Pack.isHidden()} packs, because
+     * its repository selection is the applied one, not the one in the screen.
+     */
+    public static List<Pack> completeMenuOrder(List<Pack> menuTopFirst, Collection<Pack> repositoryBottomFirst,
+                                               Predicate<Pack> missing) {
         Set<Pack> children = new HashSet<>();
         for (Pack p : repositoryBottomFirst) children.addAll(p.getChildren());
         List<Pack> result = new ArrayList<>(menuTopFirst);
         List<Pack> repo = new ArrayList<>(repositoryBottomFirst);
         for (int i = 0; i < repo.size(); i++) {
             Pack p = repo.get(i);
-            if (!p.isHidden() || children.contains(p) || result.contains(p)) continue;
+            if (children.contains(p) || result.contains(p) || !missing.test(p)) continue;
             int insertAt = result.size();
             for (int j = i - 1; j >= 0; j--) {
                 int pos = result.indexOf(repo.get(j));

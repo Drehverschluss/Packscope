@@ -49,7 +49,7 @@ class TestPackExpectationsTest {
             Map.entry("PS_Anim_High", PackStatus.WINS),
             Map.entry("PS_Anim_Low.zip", PackStatus.LOSES),
             Map.entry("PS_Overlay.zip", PackStatus.WINS),
-            Map.entry("PS_Filter.zip", PackStatus.NO_CONFLICT),
+            Map.entry("PS_Filter.zip", PackStatus.WINS),
             Map.entry("PS_Sound_Replace", PackStatus.REPLACES_SOUNDS),
             Map.entry("PS_Sound_Add.zip", PackStatus.LOSES),
             Map.entry("PS_Lang_High", PackStatus.WINS),
@@ -74,11 +74,11 @@ class TestPackExpectationsTest {
         assertEquals(id("PS_B_Top"), covered.winner());
         assertEquals(List.of(id("PS_D_Hidden.zip")), covered.losers());
         assertEquals(List.of(id("PS_E_CopyOnly.zip")), covered.harmless());
-        // A wins the diamond against D, loses it to B and ov_vs_a to the overlay
+        // A wins the diamond against D, loses it to B, ov_vs_a to the overlay and filtered/hidden.txt to the filter
         PackSummary a = pack("PS_A_Base.zip");
         assertEquals(1, a.wins());
-        assertEquals(2, a.losses());
-        assertEquals(Map.of(id("PS_B_Top"), 1, id("PS_Overlay.zip"), 1), a.losesTo());
+        assertEquals(3, a.losses());
+        assertEquals(Map.of(id("PS_B_Top"), 1, id("PS_Overlay.zip"), 1, id("PS_Filter.zip"), 1), a.losesTo());
         assertNull(file("packscope_test:textures/item/only_a.png"), "file only in A is no conflict");
     }
 
@@ -100,6 +100,9 @@ class TestPackExpectationsTest {
         assertEquals(List.of(id("PS_A_Base.zip")), f.get(0).hiddenPacks());
         assertEquals(1, pack("PS_Filter.zip").hidesOthers());
         assertEquals(1, pack("PS_A_Base.zip").hiddenByFilter());
+        // the hidden file counts like an override: the filter pack wins, the hidden pack loses (Konzept 4, after Phase 3B)
+        assertEquals(1, pack("PS_Filter.zip").wins());
+        assertEquals(Map.of(id("PS_A_Base.zip"), 1), pack("PS_Filter.zip").winsAgainst());
         assertTrue(result.indexes().get(id("PS_Filter.zip")).files().containsKey("packscope_test:texts/filtered/own.txt"));
     }
 
@@ -203,7 +206,7 @@ class TestPackExpectationsTest {
     void identicalCountsWhenOptionOff() {
         ScanResult r = PackEvaluator.evaluate(TestPacks.readmeOrder(), new IndexCache(null), PackscopeSettings.DEFAULTS.withIgnoreIdentical(false));
         assertEquals(PackStatus.WINS, r.summary(id("PS_C_Copy.zip")).status());
-        assertEquals(3, r.summary(id("PS_A_Base.zip")).losses());
+        assertEquals(4, r.summary(id("PS_A_Base.zip")).losses(), "B, overlay, filter and the copy of C");
         // without the copy rule E simply loses its only file: still completely covered, but not "only copies"
         assertEquals(PackStatus.COMPLETELY_COVERED, r.summary(id("PS_E_CopyOnly.zip")).status());
         assertFalse(r.summary(id("PS_E_CopyOnly.zip")).onlyCopies());

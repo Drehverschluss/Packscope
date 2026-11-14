@@ -103,7 +103,7 @@ class IntendedTest {
             new IntendedMarking("file/Not_Here-1.0.zip", id("PS_B_Top"), "gone")));
         assertEquals(MarkingStatus.NO_CONFLICT, r.markings().get(0).status());
         assertEquals(MarkingStatus.PACK_NOT_ACTIVE, r.markings().get(1).status());
-        assertEquals(PackStatus.NO_CONFLICT, r.summary(id("PS_Filter.zip")).status());
+        assertEquals(PackStatus.WINS, r.summary(id("PS_Filter.zip")).status(), "still wins against A through its filter");
         assertEquals(PackStatus.WINS, r.summary(id("PS_B_Top")).status());
     }
 
@@ -113,6 +113,10 @@ class IntendedTest {
             mark("PS_Folder/PS_F_Top.zip", "PS_Folder/PS_F_Low")));
         assertTrue(r.filtered().get(0).intended());
         assertEquals(1, r.pair(id("PS_Filter.zip"), id("PS_A_Base.zip")).filtered());
+        // an intended filter pair counts like other intended pairs
+        assertEquals(PackStatus.INTENDED_ONLY, r.summary(id("PS_Filter.zip")).status());
+        assertEquals(1, r.summary(id("PS_Filter.zip")).intendedWins());
+        assertEquals(1, r.summary(id("PS_A_Base.zip")).intendedLosses());
         assertEquals(PackStatus.INTENDED_ONLY, r.summary(id("PS_Folder/PS_F_Top.zip")).status());
     }
 

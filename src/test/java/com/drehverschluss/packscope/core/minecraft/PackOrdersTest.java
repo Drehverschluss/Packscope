@@ -66,4 +66,31 @@ class PackOrdersTest {
         assertEquals(List.of("generated/secret", "file/Low.zip", "file/High.zip", "vanilla", "generated/bottom"),
             full.stream().map(Pack::getId).toList(), "secret stays directly above its neighbour below (Low), even after Low moved");
     }
+
+    @Test
+    void menuOrderGetsThePacksHiddenInTheProfileBack() {
+        // Phase 4: the vanilla screen adds every selected pack that is in neither of its lists (hidden by mod code or in
+        // a Packed Packs profile). The repository is stale while populateLists runs: a pack the user just disabled is
+        // still selected there, but it is in the unselected list and must not come back.
+        Pack vanilla = pack("vanilla");
+        Pack modA = pack("mod/a");
+        Pack modResources = pack("mod_resources").withChildren(List.of(modA));
+        Pack child = modResources.getChildren().get(0);
+        Pack low = pack("file/Low.zip");
+        Pack profileHidden = pack("file/ProfileHidden.zip");
+        Pack justDisabled = pack("file/JustDisabled.zip");
+        Pack high = pack("file/High.zip");
+        Pack modHidden = pack("generated/secret").hidden();
+        List<Pack> repository = List.of(vanilla, modResources, child, low, profileHidden, justDisabled, high, modHidden);
+        List<Pack> menu = List.of(high, low, modResources, vanilla);
+        List<Pack> unselected = List.of(justDisabled, pack("file/Other.zip"));
+        java.util.Set<Pack> inScreen = new java.util.HashSet<>(menu);
+        inScreen.addAll(unselected);
+        List<Pack> full = PackOrders.completeMenuOrder(menu, repository, p -> !inScreen.contains(p));
+        assertEquals(List.of("generated/secret", "file/High.zip", "file/ProfileHidden.zip", "file/Low.zip", "mod_resources", "vanilla"),
+            full.stream().map(Pack::getId).toList(), "profile-hidden above its neighbour Low, no child of mod_resources, no disabled pack");
+        // the old rule (Packed Packs screen: only Pack.isHidden()) adds only the pack hidden by mod code
+        assertEquals(List.of("generated/secret", "file/High.zip", "file/Low.zip", "mod_resources", "vanilla"),
+            PackOrders.completeMenuOrder(menu, repository).stream().map(Pack::getId).toList());
+    }
 }

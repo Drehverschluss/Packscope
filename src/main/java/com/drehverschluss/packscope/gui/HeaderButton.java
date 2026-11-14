@@ -25,7 +25,7 @@ public final class HeaderButton extends Button {
     private final Component label;
     private boolean iconOnly;
 
-    public HeaderButton(Screen screen, MenuState state) {
+    public HeaderButton(Screen screen, ResultSource state) {
         super(0, 0, 60, 20, Component.translatable("packscope.button.conflicts"),
             b -> VanillaMenu.openDetails(screen, state, null), DEFAULT_NARRATION);
         this.screen = screen;

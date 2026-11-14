@@ -152,5 +152,10 @@
   "packscope.count.dead.one": "%s .mcmeta ohne Wirkung",
   "packscope.count.dead.many": "%s .mcmeta ohne Wirkung",
   "packscope.count.packs.one": "%s Pack",
-  "packscope.count.packs.many": "%s Packs"
+  "packscope.count.packs.many": "%s Packs",
+  "packscope.menu.show": "Konflikte anzeigen",
+  "packscope.menu.show.tooltip": "Packscope: öffnet die Konflikte dieses Packs.",
+  "packscope.menu.mark_all": "Alle als gewollt markieren",
+  "packscope.menu.unmark_all": "Alle Markierungen aufheben",
+  "packscope.narration.icon": "Packscope-Konflikte: %s"
 }

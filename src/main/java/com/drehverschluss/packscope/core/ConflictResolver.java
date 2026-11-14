@@ -143,6 +143,8 @@ public final class ConflictResolver {
             List<String> hidden = new ArrayList<>();
             boolean allIntended = true;
             boolean anyRp = false;
+            boolean beatPlain = false;
+            boolean beatIntended = false;
             for (int c : cand) {
                 if (c <= f) {
                     kept.add(c);
@@ -156,13 +158,27 @@ public final class ConflictResolver {
                         anyRp = true;
                         pair(f, c)[FILTER]++;
                         checkReversed(f, c);
-                        if (covering(f, c) < 0) allIntended = false;
+                        // a hidden file of a lower resource pack counts like an override (Konzept 4, after Phase 3B)
+                        stats[c].losesTo.merge(packs.get(f).id(), 1, Integer::sum);
+                        stats[f].winsAgainst.merge(packs.get(c).id(), 1, Integer::sum);
+                        if (covering(f, c) < 0) {
+                            allIntended = false;
+                            stats[c].losses++;
+                            beatPlain = true;
+                        } else {
+                            stats[c].intendedLosses++;
+                            beatIntended = true;
+                        }
                     }
                 }
             }
             if (record) {
                 filtered.add(new FilteredFile(loc, packs.get(f).id(), hidden, anyRp && allIntended));
-                if (rp(f)) stats[f].hidesOthers++;
+                if (rp(f)) {
+                    stats[f].hidesOthers++;
+                    if (beatPlain) stats[f].wins++;
+                    else if (beatIntended) stats[f].intendedWins++;
+                }
             }
             return kept;
         }
