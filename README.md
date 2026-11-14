@@ -12,7 +12,8 @@
 
 🔎 **See which resource pack wins.** Packscope is a NeoForge mod for Minecraft 1.21.1 (Java 21) that shows
 resource pack conflicts right in the resource pack screen, like the conflict view of **Mod Organizer 2**: every active
-pack gets a small icon that tells whether it overrides other packs, is overridden, or has no effect at all any more.
+pack with a conflict gets a small icon that tells whether it overrides other packs, is overridden, or has no effect at
+all any more.
 A click on the icon lists every file, language entry and sound event, with a side-by-side preview of every version of
 a texture.
 
