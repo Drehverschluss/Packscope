@@ -1,1 +1,26 @@
-{}
+{
+  "packscope.command.scanning": "Packscope: prüfe %s aktive Resourcepacks...",
+  "packscope.command.rescan": "Packscope: Cache geleert, prüfe %s aktive Resourcepacks neu...",
+  "packscope.command.done": "Packscope: %s Resourcepacks, %s Konflikte, %s komplett verdeckt. Bericht: %s",
+  "packscope.command.failed": "Packscope: Der Bericht ist fehlgeschlagen (%s). Details im Log.",
+
+  "packscope.configuration.title": "Packscope",
+  "packscope.configuration.showInVanillaScreen": "Symbole im Vanilla-Pack-Menü",
+  "packscope.configuration.showInVanillaScreen.tooltip": "Konflikt-Symbole im Vanilla-Resourcepack-Menü anzeigen.",
+  "packscope.configuration.showInPackedPacks": "Symbole in Packed Packs",
+  "packscope.configuration.showInPackedPacks.tooltip": "Konflikt-Symbole im Menü von Packed Packs anzeigen (nur wenn Packed Packs installiert ist).",
+  "packscope.configuration.ignoreIdentical": "Gleiche Dateien ignorieren",
+  "packscope.configuration.ignoreIdentical.tooltip": "Byte-gleiche Dateien gelten als harmlose Doppelte, nicht als Konflikt.",
+  "packscope.configuration.showModOverridesInTooltip": "Mod-Dateien im Hovertext",
+  "packscope.configuration.showModOverridesInTooltip.tooltip": "Graue Info-Zeile „ersetzt X Dateien von Mods“ im Hovertext des Symbols anzeigen.",
+  "packscope.configuration.ignoredPaths": "Ignorierte Pfade",
+  "packscope.configuration.ignoredPaths.tooltip": "Dateien, die nie als Konflikt zählen, z. B. minecraft:textures/gui/title/*",
+  "packscope.configuration.previewSize": "Größe der Texturvorschau",
+  "packscope.configuration.previewSize.tooltip": "Größe der Texturvorschau im Detailfenster in Pixeln.",
+  "packscope.configuration.cacheEnabled": "Cache",
+  "packscope.configuration.cacheEnabled.tooltip": "Scan-Ergebnisse im Speicher und Prüfsummen von Ordner-Packs in packscope/cache/ behalten.",
+  "packscope.configuration.autoExportReport": "Bericht nach jedem Neuladen",
+  "packscope.configuration.autoExportReport.tooltip": "Nach jedem Neuladen der Ressourcen packscope/reports/packscope-report.md und .json schreiben.",
+  "packscope.configuration.reportListModOverrides": "Alle Mod-Dateien im Bericht",
+  "packscope.configuration.reportListModOverrides.tooltip": "Jede ersetzte Mod-/Vanilla-Datei im Bericht auflisten, nicht nur die Zahlen pro Mod."
+}

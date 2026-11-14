@@ -1,0 +1,8 @@
+{
+  "sources": [
+    {
+      "type": "single",
+      "resource": "packscope_test:atlas/two"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "test.event": {
+    "replace": true,
+    "sounds": [
+      "packscope_test:high_b"
+    ]
+  },
+  "test.merge": {
+    "sounds": [
+      "packscope_test:high_m"
+    ]
+  }
+}

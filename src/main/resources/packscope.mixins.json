@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.drehverschluss.packscope.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "PackAccessor",
+    "FileResourcesSupplierAccessor",
+    "PathResourcesSupplierAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

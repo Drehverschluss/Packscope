@@ -1,1 +1,26 @@
-{}
+{
+  "packscope.command.scanning": "Packscope: checking %s active resource packs...",
+  "packscope.command.rescan": "Packscope: cache cleared, scanning %s active resource packs again...",
+  "packscope.command.done": "Packscope: %s resource packs, %s conflicts, %s completely covered. Report: %s",
+  "packscope.command.failed": "Packscope: the report failed (%s). Details are in the log.",
+
+  "packscope.configuration.title": "Packscope",
+  "packscope.configuration.showInVanillaScreen": "Icons in the vanilla pack screen",
+  "packscope.configuration.showInVanillaScreen.tooltip": "Show conflict icons in the vanilla resource pack screen.",
+  "packscope.configuration.showInPackedPacks": "Icons in Packed Packs",
+  "packscope.configuration.showInPackedPacks.tooltip": "Show conflict icons in the Packed Packs screen (only if Packed Packs is installed).",
+  "packscope.configuration.ignoreIdentical": "Ignore identical files",
+  "packscope.configuration.ignoreIdentical.tooltip": "Byte-identical files are listed as harmless duplicates, not as conflicts.",
+  "packscope.configuration.showModOverridesInTooltip": "Mod files in the tooltip",
+  "packscope.configuration.showModOverridesInTooltip.tooltip": "Show a grey info line \"replaces X files of mods\" in the icon tooltip.",
+  "packscope.configuration.ignoredPaths": "Ignored paths",
+  "packscope.configuration.ignoredPaths.tooltip": "Files that never count as a conflict, e.g. minecraft:textures/gui/title/*",
+  "packscope.configuration.previewSize": "Texture preview size",
+  "packscope.configuration.previewSize.tooltip": "Size of the texture preview in the detail screen, in pixels.",
+  "packscope.configuration.cacheEnabled": "Cache",
+  "packscope.configuration.cacheEnabled.tooltip": "Keep scan results in memory and the checksums of folder packs in packscope/cache/.",
+  "packscope.configuration.autoExportReport": "Report after every reload",
+  "packscope.configuration.autoExportReport.tooltip": "Write packscope/reports/packscope-report.md and .json after every resource reload.",
+  "packscope.configuration.reportListModOverrides": "List all mod files in the report",
+  "packscope.configuration.reportListModOverrides.tooltip": "List every replaced mod/vanilla file in the report, not only the numbers per mod."
+}

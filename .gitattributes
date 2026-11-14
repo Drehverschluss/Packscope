@@ -3,3 +3,6 @@
 # are changed when only line endings change.
 src/generated/**/.cache/* text eol=lf
 src/generated/**/*.json text eol=lf
+
+# Test resource packs: keep the bytes exactly as built (CRC checks in the unit tests)
+src/test/resources/testpacks/** -text

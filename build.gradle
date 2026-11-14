@@ -131,6 +131,26 @@ dependencies {
 
     // Local test mods, only present in the dev runs
     localRuntime fileTree(dir: 'libs/test', include: '*.jar')
+
+    // Unit tests for the core (plain JUnit 5, no game started)
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Minecraft classes (and their libraries such as Gson) on the test classpath, without starting the game.
+neoForge.addModdingDependenciesTo(sourceSets.test)
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    // The log4j config of the Minecraft libraries writes logs/ into the working directory: keep it inside build/
+    def testRunDir = file('build/test-run')
+    workingDir = testRunDir
+    doFirst { testRunDir.mkdirs() }
+    testLogging {
+        events 'failed'
+        exceptionFormat 'full'
+    }
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
