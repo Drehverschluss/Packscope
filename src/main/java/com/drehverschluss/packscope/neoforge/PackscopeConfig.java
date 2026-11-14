@@ -30,11 +30,12 @@ public final class PackscopeConfig {
             .translation("packscope.configuration.showInPackedPacks")
             .define("showInPackedPacks", true);
         IGNORE_IDENTICAL = b
-            .comment("Byte-identical files (same size and CRC32) are listed as harmless duplicates, not as conflicts.")
+            .comment("Byte-identical files (same size and CRC32) and language entries with the same text are listed as harmless",
+                "duplicates, not as conflicts.")
             .translation("packscope.configuration.ignoreIdentical")
             .define("ignoreIdentical", true);
         SHOW_MOD_OVERRIDES_IN_TOOLTIP = b
-            .comment("Show a grey info line \"replaces X files of mods\" in the icon tooltip.")
+            .comment("Show the grey info lines about replaced files of mods and Minecraft in the icon tooltip.")
             .translation("packscope.configuration.showModOverridesInTooltip")
             .define("showModOverridesInTooltip", true);
         IGNORED_PATHS = b

@@ -102,7 +102,7 @@ public final class ReportWriter {
             .append(settings.ignoredPaths()).append(", allLanguages=").append(settings.allLanguages()).append("\n\n");
 
         sb.append("## Load order (top = highest priority)\n\n");
-        sb.append("| # | Pack | Id | Type | Scan | Files | Status | Wins | Loses | Notes |\n");
+        sb.append("| # | Pack | Id | Type | Scan | Files | Status | Overrides | Overridden | Notes |\n");
         sb.append("|---|---|---|---|---|---|---|---|---|---|\n");
         int n = 1;
         for (PackSummary p : r.packs()) {
@@ -308,7 +308,7 @@ public final class ReportWriter {
         if (!reversed.isEmpty()) {
             sb.append("### Overridden by mod or vanilla resources (pack placed below them)\n\n");
             for (ModOverride m : reversed) {
-                sb.append("- `").append(m.location()).append("` of **").append(names.get(m.pack())).append("** loses to ")
+                sb.append("- `").append(m.location()).append("` of **").append(names.get(m.pack())).append("** is overridden by ")
                     .append(m.ownerName()).append(" (").append(typeLabel(m)).append(")\n");
             }
             sb.append('\n');
@@ -359,7 +359,7 @@ public final class ReportWriter {
             else if (p.copies() > 0) n.add(p.copies() + " identical");
             if (p.againstMarking()) n.add("against marking");
             if (p.intendedWins() + p.intendedLosses() > 0) {
-                n.add("intended: " + p.intendedWins() + " wins, " + p.intendedLosses() + " losses");
+                n.add("intended: overrides " + p.intendedWins() + ", overridden " + p.intendedLosses());
             }
             if (p.hiddenByFilter() > 0) n.add(p.hiddenByFilter() + " hidden by filter");
             if (p.hidesOthers() > 0) n.add("hides " + p.hidesOthers() + " (filter)");

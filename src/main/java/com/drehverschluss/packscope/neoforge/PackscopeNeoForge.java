@@ -30,6 +30,8 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
+import net.neoforged.neoforge.client.gui.ConfigurationScreen;
+import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 
 /** NeoForge side of the client: config, client commands, reload listener, mod names, paths. */
@@ -53,6 +55,8 @@ public final class PackscopeNeoForge {
     public static void init(IEventBus modBus, ModContainer container) {
         instance = new PackscopeNeoForge(container);
         container.registerConfig(ModConfig.Type.CLIENT, PackscopeConfig.SPEC);
+        // "Config" button in the mod list: NeoForge's standard screen for packscope-client.toml
+        container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         modBus.addListener(RegisterClientReloadListenersEvent.class, e ->
             e.registerReloadListener(new ReportReloadListener(PackscopeConfig::settings, () -> instance.report(false, false),
                 () -> instance.service.clearDynamicCache())));

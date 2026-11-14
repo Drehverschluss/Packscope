@@ -8,7 +8,10 @@ modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
 displayURL="https://github.com/Drehverschluss/Packscope"
+logoFile="packscope.png"
+logoBlur=false
 authors="${mod_authors}"
+credits="Idea from the conflict view of Mod Organizer 2. Optional Packed Packs support through the public Packed Packs API by fishstiz (MIT), not affiliated. See CREDITS.md in the source repository."
 description='''${mod_description}'''
 # Client-only mod without a server part: never mark a server as incompatible
 displayTest="IGNORE_ALL_VERSION"

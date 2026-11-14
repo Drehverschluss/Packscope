@@ -19,22 +19,17 @@ public enum PackStatus {
         return name().toLowerCase(java.util.Locale.ROOT);
     }
 
-    /** English label for reports. */
+    /** English name for reports, the same as the status names of the UI ({@code en_us}). */
     public String label() {
         return switch (this) {
             case COMPLETELY_COVERED -> "Completely covered";
             case AGAINST_MARKING -> "Against marking";
             case REPLACES_SOUNDS -> "Replaces sounds";
-            case WINS_AND_LOSES -> "Wins and loses";
-            case WINS -> "Wins";
-            case LOSES -> "Loses";
-            case INTENDED_ONLY -> "Intended only";
+            case WINS_AND_LOSES -> "Overrides and is overridden";
+            case WINS -> "Overrides other packs";
+            case LOSES -> "Is overridden";
+            case INTENDED_ONLY -> "Only intended conflicts";
             case NO_CONFLICT -> "No conflict";
         };
-    }
-
-    /** Warning statuses (red/yellow in the UI). */
-    public boolean isWarning() {
-        return this == COMPLETELY_COVERED || this == AGAINST_MARKING || this == REPLACES_SOUNDS;
     }
 }

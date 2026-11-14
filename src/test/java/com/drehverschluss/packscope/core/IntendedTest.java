@@ -237,4 +237,29 @@ class IntendedTest {
         assertTrue(json.getAsJsonArray("fileConflicts").asList().stream().map(e -> e.getAsJsonObject())
             .filter(o -> o.get("location").getAsString().endsWith("anim_a.png")).findFirst().orElseThrow().get("intended").getAsBoolean());
     }
+
+    @Test
+    void reportUsesTheStatusNamesOfTheScreen() {
+        ScanResult r = eval(TestPacks.readmeOrder(), IntendedSet.of(mark("PS_Anim_High", "PS_Anim_Low.zip")));
+        String md = ReportWriter.markdown(r, PackscopeSettings.DEFAULTS, "test");
+        assertTrue(md.contains("| Status | Overrides | Overridden | Notes |"));
+        assertTrue(md.contains("| Only intended conflicts |"));
+        assertTrue(md.contains("| Overrides other packs |") || md.contains("| Overrides and is overridden |"));
+        assertTrue(md.contains("intended: overrides 2, overridden 0"), "notes of PS_Anim_High");
+        for (String old : List.of("| Wins |", "| Loses |", "| Wins and loses |", "| Intended only |", " wins, ", "loses to")) {
+            assertFalse(md.contains(old), old);
+        }
+    }
+
+    @Test
+    void reportStatusNamesMatchEnglishLanguageFile() throws IOException {
+        JsonObject lang;
+        try (var in = IntendedTest.class.getResourceAsStream("/assets/packscope/lang/en_us.json")) {
+            assertNotNull(in, "en_us.json on the test classpath");
+            lang = JsonParser.parseString(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+        }
+        for (PackStatus s : PackStatus.values()) {
+            assertEquals(lang.get("packscope.status." + s.id()).getAsString(), s.label(), s.name());
+        }
+    }
 }

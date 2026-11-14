@@ -148,7 +148,9 @@ public final class RowList extends AbstractWidget {
                 x += 10;
             }
             if (r.status() != null) {
-                StatusLook look = StatusLook.of(r.status(), com.drehverschluss.packscope.core.PackscopeSettings.DEFAULTS);
+                UiPlatform platform = PackscopeUi.platform();
+                StatusLook look = StatusLook.of(r.status(), platform == null
+                    ? com.drehverschluss.packscope.core.PackscopeSettings.DEFAULTS : platform.settings());
                 if (look != null) StatusIcons.draw(g, look, x, top + 1);
                 x += StatusIcons.SIZE + 3;
             }

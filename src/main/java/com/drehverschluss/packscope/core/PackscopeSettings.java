@@ -26,16 +26,6 @@ public record PackscopeSettings(boolean showInVanillaScreen, boolean showInPacke
             previewSize, cacheEnabled, autoExportReport, reportListModOverrides, allLanguages, showIntendedSymbol);
     }
 
-    public PackscopeSettings withCacheEnabled(boolean value) {
-        return new PackscopeSettings(showInVanillaScreen, showInPackedPacks, ignoreIdentical, showModOverridesInTooltip, ignoredPaths,
-            previewSize, value, autoExportReport, reportListModOverrides, allLanguages, showIntendedSymbol);
-    }
-
-    public PackscopeSettings withReportListModOverrides(boolean value) {
-        return new PackscopeSettings(showInVanillaScreen, showInPackedPacks, ignoreIdentical, showModOverridesInTooltip, ignoredPaths,
-            previewSize, cacheEnabled, autoExportReport, value, allLanguages, showIntendedSymbol);
-    }
-
     public PackscopeSettings withAllLanguages(boolean value) {
         return new PackscopeSettings(showInVanillaScreen, showInPackedPacks, ignoreIdentical, showModOverridesInTooltip, ignoredPaths,
             previewSize, cacheEnabled, autoExportReport, reportListModOverrides, value, showIntendedSymbol);

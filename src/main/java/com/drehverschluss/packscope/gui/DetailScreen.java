@@ -346,7 +346,7 @@ public final class DetailScreen extends Screen {
         ScanResult.PackSummary s = r == null ? null : r.summary(packId);
         int x = 34;
         if (s != null) {
-            StatusLook look = StatusLook.of(s.status(), PackscopeSettings.DEFAULTS);
+            StatusLook look = StatusLook.of(s.status(), settings());
             if (look != null) {
                 StatusIcons.draw(g, look, x, 16);
                 x += StatusIcons.SIZE + 3;
